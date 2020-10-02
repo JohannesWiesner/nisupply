@@ -112,10 +112,11 @@ def get_echo_number(filepath):
     else:
         return match.group(3)
     
+# get session dates as ascending integer timepoints (starting from 1)
 def get_timepoint(filepaths_df):
     
     # create timepoints for session dates
-    filepaths_df['t'] = filepaths_df.sort_values(['id', 'img_date']).drop_duplicates(['id', 'img_date']).groupby('id').cumcount()
+    filepaths_df['t'] = filepaths_df.sort_values(['subject', 'session']).drop_duplicates(['subject', 'session']).groupby('subject').cumcount()
     filepaths_df['t'] = filepaths_df['t'].fillna(method='ffill').astype(int)
     
     return filepaths_df
