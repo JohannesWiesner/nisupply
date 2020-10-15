@@ -1,18 +1,11 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Mar 30 11:11:28 2020
-
-@author: johwi
-"""
-
-import numpy as np
 import pandas as pd
 import os
 import gzip
 import shutil
 import re
 
-# TO-DO: It should also be allowed to not define preceding directories
+# FIXME: It should also be allowed to not define preceding directories
+# FIXME: Several file extensions should be allowed (e.g. '.nii' and '.nii.gz')
 def find_files(src_dir,file_extension='.nii',file_prefix=None,preceding_dirs='anat'):
     
     # if only one preceding dir provided as string, convert to list
@@ -39,24 +32,23 @@ def find_files(src_dir,file_extension='.nii',file_prefix=None,preceding_dirs='an
     
     return filepath_list
 
-def get_subject_filepaths(subject_ids,subject_folders,file_extension='.nii',
-                          file_prefix=None,preceding_dirs='anat'):
+def get_participant_filepaths(participant_ids,participant_dirs,file_extension='.nii',file_prefix=None,preceding_dirs='anat'):
     
     filepaths_dict = {}
     
-    # walk through each subject folder
-    for subject_id,subject_folder in zip(subject_ids,subject_folders):
+    # walk through each participants directory and find files
+    for participant_id,participant_dir in zip(participant_ids,participant_dirs):
         	
-        subject_filepath_list = find_files(src_dir=subject_folder,
+        participant_filepath_list = find_files(src_dir=participant_dir,
                                            file_extension=file_extension,
                                            file_prefix=file_prefix,
                                            preceding_dirs=preceding_dirs)
                         
         
-        filepaths_dict[subject_id] = subject_filepath_list
+        filepaths_dict[participant_id] = participant_filepath_list
     
     # create dataframe from dictionary
-    filepaths_df = pd.DataFrame([(key, var) for (key, L) in filepaths_dict.items() for var in L],columns=['id', 'filepath'])
+    filepaths_df = pd.DataFrame([(key, var) for (key, L) in filepaths_dict.items() for var in L],columns=['participant_id', 'filepath'])
 
     return filepaths_df
 
@@ -67,7 +59,7 @@ def uncompress_files(filepath_list,file_extension='.nii'):
     
     filepath_list_uncompressed = []
 
-    # decompress NIFTI Files, but only if there's not alreay an 
+    # decompress nifti files, but only if there's not alreay an 
     # uncompressed version of the nifti file.
     for f in filepath_list:
         if os.path.exists(f.replace('.nii.gz','.nii')):
@@ -83,13 +75,13 @@ def uncompress_files(filepath_list,file_extension='.nii'):
         
     return filepath_list_uncompressed
 
-def get_session_date(filepath):
+def get_session_label(filepath):
     
-    pattern = '(ses-)(\d+)'
+    pattern = '(_ses-)(\d+)'
     match = re.search(pattern,filepath)
     
     if match is None:
-        return np.nan
+        return 'no_session_label'
     else:
         return match.group(2)
     
@@ -99,11 +91,10 @@ def get_run_number(filepath):
     match = re.search(pattern,filepath)
     
     if match is None:
-        return '1'
+        return 'no_run_number'
     else:
         return match.group(3)
     
-# add echo number to 
 def get_echo_number(filepath):
     
     pattern = '(_echo-)(0)(\d+)'
@@ -113,30 +104,30 @@ def get_echo_number(filepath):
         return 'no_echo_number'
     else:
         return match.group(3)
-    
+
 # get session dates as ascending integer timepoints (starting from 1)
 def get_timepoint(filepaths_df):
     
     # create timepoints for session dates
-    filepaths_df['t'] = filepaths_df.sort_values(['subject', 'session']).drop_duplicates(['subject', 'session']).groupby('subject').cumcount()
+    filepaths_df['t'] = filepaths_df.sort_values(['participant_id', 'session']).drop_duplicates(['participant_id', 'session']).groupby('participant_id').cumcount()
     filepaths_df['t'] = filepaths_df['t'].fillna(method='ffill').astype(int)
     
     return filepaths_df
     
-def get_filepath_df(subject_ids,subject_folders,file_extension='.nii',
-                  uncompress_files=True,file_prefix=None,preceding_dirs='anat',
-                  add_img_date=True,add_run_number=True,add_echo_number=True,add_timepoint=True):
+def get_filepath_df(participant_ids,participant_dirs,file_extension='.nii',
+                    file_prefix=None,preceding_dirs='anat',add_session_label=False,
+                    add_run_number=False,add_echo_number=False,add_timepoint=False):
     
-    # get dataframe with subject ids and filepaths
-    filepath_df = get_subject_filepaths(subject_ids=subject_ids,
-                                        subject_folders=subject_folders,
-                                        file_extension=file_extension,
-                                        file_prefix=file_prefix,
-                                        preceding_dirs=preceding_dirs)
+    # get dataframe with participant ids and filepaths
+    filepath_df = get_participant_filepaths(participant_ids=participant_ids,
+                                            participant_dirs=participant_dirs,
+                                            file_extension=file_extension,
+                                            file_prefix=file_prefix,
+                                            preceding_dirs=preceding_dirs)
 
     # add further information
-    if add_img_date == True:
-        filepath_df['img_date'] = filepath_df['filepath'].map(get_session_date)
+    if add_session_label == True:
+        filepath_df['session_label'] = filepath_df['filepath'].map(get_session_label)
     
     if add_run_number == True:
         filepath_df['run_number'] = filepath_df['filepath'].map(get_run_number)
