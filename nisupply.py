@@ -4,9 +4,37 @@ import gzip
 import shutil
 import re
 
-# FIXME: It should also be allowed to not define preceding directories
-# FIXME: Several file extensions should be allowed (e.g. '.nii' and '.nii.gz')
+# TO-DO: Preceding directories should be optional
+# TO-DO: Several file extensions should be allowed (e.g. '.nii' and '.nii.gz')
+# TO-DO: File extensions should be optional?
+# TO-DO: Searching for a specific order of directories should be included (e.g. search for files
+# that contain '\session_1\anat\)
 def find_files(src_dir,file_extension='.nii',file_prefix=None,preceding_dirs='anat'):
+    '''Find files in a source directory. Files are filterd using a 
+    specified file extension, an optional prefix and a list of preceding
+    directories that should be part of the filepath.
+    
+    Parameters
+    ----------
+    src_dir: path
+        A directory path that should be search for files.
+    
+    file_extension: str
+        Default: '.nii'
+    
+    file_prefix: str
+        An optional file-prefix. Default: None
+    
+    preceding_dirs: str or list of strs
+        Names of directories that should be part of the final filepath
+        
+    Returns
+    -------
+    filepath_list: list
+        A list containing filepaths for the found files.
+
+    '''
+    
     
     # if only one preceding dir provided as string, convert to list
     if isinstance(preceding_dirs,str):
@@ -32,7 +60,28 @@ def find_files(src_dir,file_extension='.nii',file_prefix=None,preceding_dirs='an
     
     return filepath_list
 
-def get_participant_filepaths(participant_ids,participant_dirs,file_extension='.nii',file_prefix=None,preceding_dirs='anat'):
+def get_participant_filepaths(participant_ids,participant_dirs,file_extension='.nii',
+                              file_prefix=None,preceding_dirs='anat'):
+    '''Find files for each participant. 
+    
+    Parameters
+    ----------
+    participant_ids: list
+        A list of unique participant IDs.
+    
+    participant_dirs: list
+        A list of directories for each participant. It is assumed that each directory
+        only contains files for that participant. 
+    
+    See find_files for documentation of other parameters.
+        
+    Returns
+    -------
+    filepath_list: list
+        A list containing filepaths for the found files.
+
+    '''
+    
     
     filepaths_dict = {}
     
@@ -52,9 +101,9 @@ def get_participant_filepaths(participant_ids,participant_dirs,file_extension='.
 
     return filepaths_df
 
-# FXME: Makes this function more generic (use function that can uncompress
+# TO-DO. Makes this function more generic (use function that can uncompress
 # files with all kinds of extensions)
-# FIXME: Implement this function in get_filepath_df
+# TO-DO: Implement this function in get_filepath_df
 def uncompress_files(filepath_list,file_extension='.nii'):
     
     filepath_list_uncompressed = []
@@ -139,6 +188,74 @@ def get_filepath_df(participant_ids,participant_dirs,file_extension='.nii',
         filepath_df = get_timepoint(filepath_df)
     
     return filepath_df
+
+def add_bids_dirs(dst_dir,bids_df):
+    '''Adds a column of BIDS-conform destination directories given
+    a DataFrame and destination directory for the whole data set.
+    
+    Parameters
+    ----------
+    dst_dir: path
+        A path to the destination directory where the BIDS-structure should
+        be created.
+        
+    bids_df: pd.DataFrame
+        A DataFrame containing BIDS-specific columns 'participant_id',
+        'session' and 'data_type'. 
+        
+    Returns
+    -------
+    bids_df: pd.DataFrame
+        The input data frame where a column 'bids_dir' is added.
+
+    '''
+    dst_dir = os.path.normpath(dst_dir)
+    bids_df['bids_dir'] =  bids_df.apply(lambda row: os.path.join(dst_dir,row['participant_id'],row['session'],row['data_type']),axis=1)
+    
+    return bids_df
+
+def create_bids_structure(bids_df):
+    '''Create BIDS-conform directory structure based on BIDS-conform
+    directory paths
+    
+    Parameters
+    ----------
+    bids_df: pd.DataFrame
+        A data frame that contains a column 'bids_dirs' that contains
+        BIDS-conform directory paths which will be created.
+        
+    Returns
+    -------
+    None.
+
+    '''
+    
+    for bids_dir in bids_df['bids_dir']:
+        if not os.path.isdir(bids_dir):
+            os.makedirs(bids_dir)
+
+
+def copy_files_to_bids_structure(filepath_df,bids_df):
+    '''Copy files to BIDS-conform destination directories.
+    
+    Parameters
+    ----------
+    filepath_df: A dataframe containing a column 'participant_id' and a column
+    'filepath' that points to the file which should be copied.
+    
+    bids_df: A dataframe containg a column 'participant_id' and a column
+    'bids_dir' that points to a directory where the file should be copied to.
+    
+    Returns
+    ------
+    
+    
+    '''
+
+    bids_df_src_filepaths = pd.merge(bids_df,filepath_df,on='participant_id')
+    
+    for idx,row in bids_df_src_filepaths.iterrows():
+        shutil.copy2(row['filepath'],row['bids_dir'])
 
 if __name__ == '__main__':
     pass
