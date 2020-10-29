@@ -134,6 +134,15 @@ def get_session_label(filepath):
     else:
         return match.group(2)
     
+# get session dates as ascending integer timepoints (starting from 1)
+def get_timepoint(filepaths_df):
+    
+    # create timepoints for session dates
+    filepaths_df['t'] = filepaths_df.sort_values(['participant_id', 'session_label']).drop_duplicates(['participant_id', 'session_label']).groupby('participant_id').cumcount()
+    filepaths_df['t'] = filepaths_df['t'].fillna(method='ffill').astype(int)
+    
+    return filepaths_df
+    
 def get_run_number(filepath):
     
     pattern = '(_run-)(0)(\d+)'
@@ -154,15 +163,6 @@ def get_echo_number(filepath):
     else:
         return match.group(3)
 
-# get session dates as ascending integer timepoints (starting from 1)
-def get_timepoint(filepaths_df):
-    
-    # create timepoints for session dates
-    filepaths_df['t'] = filepaths_df.sort_values(['participant_id', 'session']).drop_duplicates(['participant_id', 'session']).groupby('participant_id').cumcount()
-    filepaths_df['t'] = filepaths_df['t'].fillna(method='ffill').astype(int)
-    
-    return filepaths_df
-    
 def get_filepath_df(participant_ids,participant_dirs,file_extension='.nii',
                     file_prefix=None,preceding_dirs='anat',add_session_label=False,
                     add_run_number=False,add_echo_number=False,add_timepoint=False):
@@ -185,6 +185,9 @@ def get_filepath_df(participant_ids,participant_dirs,file_extension='.nii',
         filepath_df['echo_number'] = filepath_df['filepath'].map(get_echo_number)
     
     if add_timepoint == True:
+        if add_session_label != True:
+            raise ValueError('In order to add timepoint, you must set add_session_label == True')
+            
         filepath_df = get_timepoint(filepath_df)
     
     return filepath_df
