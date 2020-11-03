@@ -3,6 +3,7 @@ import os
 import gzip
 import shutil
 import re
+import pathlib
 
 # TO-DO: Preceding directories should be optional
 # TO-DO: Several file extensions should be allowed (e.g. '.nii' and '.nii.gz')
@@ -70,8 +71,8 @@ def get_participant_filepaths(participant_ids,participant_dirs,file_extension='.
         A list of unique participant IDs.
     
     participant_dirs: list
-        A list of directories for each participant. It is assumed that each directory
-        only contains files for that participant. 
+        A list of directories for each participant corresponding to participant_ids. 
+        It is assumed that each directory only contains files for that particular participant. 
     
     See find_files for documentation of other parameters.
         
@@ -101,27 +102,45 @@ def get_participant_filepaths(participant_ids,participant_dirs,file_extension='.
 
     return filepaths_df
 
-# TO-DO. Makes this function more generic (use function that can uncompress
-# files with all kinds of extensions)
 # TO-DO: Implement this function in get_filepath_df
-def uncompress_files(filepath_list,file_extension='.nii'):
+def uncompress_files(filepath_list):
+    '''Uncompress files and obtain a list of the uncompressed files
     
+    Parameters
+    ----------
+    filepath_list : list
+        A list of paths pointing to the compressed files. The function
+        assumes that the last extension represents the compression-type.
+
+    Returns
+    -------
+    filepath_list_uncompressed : list
+        A list of paths pointing to the uncompressed files
+
+    '''
+
     filepath_list_uncompressed = []
 
-    # decompress nifti files, but only if there's not alreay an 
-    # uncompressed version of the nifti file.
     for f in filepath_list:
-        if os.path.exists(f.replace('.nii.gz','.nii')):
+        
+        # get all necessary extensions
+        file_suffixes = pathlib.Path(f).suffixes
+        both_suffixes = ''.join(file_suffixes)
+        file_extension = file_suffixes[0]
+
+        uncompressed_filepath = f.replace(both_suffixes,file_extension)
+        
+        # if compressed file already exists do nothing
+        if os.path.exists(uncompressed_filepath):
             pass
+        # uncompress file and save it without the compression extension
         else:
             with gzip.open(f, 'rb') as f_in:
-                # create new name for this file (that is compressed
-                # filename without last three letters '.xx')
-                with open(f[:-3], 'wb') as f_out:
+                with open(uncompressed_filepath, 'wb') as f_out:
                     shutil.copyfileobj(f_in,f_out)
-        
-        filepath_list_uncompressed.append(f)
-        
+            
+        filepath_list_uncompressed.append(uncompressed_filepath)
+            
     return filepath_list_uncompressed
 
 def get_session_label(filepath):
@@ -174,15 +193,8 @@ def get_filepath_df(participant_ids,participant_dirs,file_extension='.nii',
                                             file_prefix=file_prefix,
                                             preceding_dirs=preceding_dirs)
 
-    # add further information
     if add_session_label == True:
         filepath_df['session_label'] = filepath_df['filepath'].map(get_session_label)
-    
-    if add_run_number == True:
-        filepath_df['run_number'] = filepath_df['filepath'].map(get_run_number)
-    
-    if add_echo_number == True:
-        filepath_df['echo_number'] = filepath_df['filepath'].map(get_echo_number)
     
     if add_timepoint == True:
         if add_session_label != True:
@@ -190,11 +202,16 @@ def get_filepath_df(participant_ids,participant_dirs,file_extension='.nii',
             
         filepath_df = get_timepoint(filepath_df)
     
+    if add_run_number == True:
+        filepath_df['run_number'] = filepath_df['filepath'].map(get_run_number)
+    
+    if add_echo_number == True:
+        filepath_df['echo_number'] = filepath_df['filepath'].map(get_echo_number)
+    
     return filepath_df
 
-def add_bids_dirs(dst_dir,bids_df):
-    '''Adds a column of BIDS-conform destination directories given
-    a DataFrame and destination directory for the whole data set.
+def get_derivative_dst_dirs(dst_dir,bids_df):
+    '''Adds a column of BIDS-conform destination directories for each file.
     
     Parameters
     ----------
@@ -204,16 +221,19 @@ def add_bids_dirs(dst_dir,bids_df):
         
     bids_df: pd.DataFrame
         A DataFrame containing BIDS-specific columns 'participant_id',
-        'session' and 'data_type'. 
+        'session_label' and 'data_type'. 
         
     Returns
     -------
     bids_df: pd.DataFrame
-        The input data frame where a column 'bids_dir' is added.
+        The input data frame where a column 'bids_dst_dir' is added.
 
     '''
     dst_dir = os.path.normpath(dst_dir)
-    bids_df['bids_dir'] =  bids_df.apply(lambda row: os.path.join(dst_dir,row['participant_id'],row['session'],row['data_type']),axis=1)
+    bids_df['bids_dst_dir'] =  bids_df.apply(lambda row: os.path.join(dst_dir,
+                                                                      'sub-'+ row['participant_id'],
+                                                                      row['session_label'],
+                                                                      row['data_type']),axis=1)
     
     return bids_df
 
@@ -233,10 +253,9 @@ def create_bids_structure(bids_df):
 
     '''
     
-    for bids_dir in bids_df['bids_dir']:
+    for bids_dir in bids_df['bids_dst_dir']:
         if not os.path.isdir(bids_dir):
             os.makedirs(bids_dir)
-
 
 def copy_files_to_bids_structure(filepath_df,bids_df):
     '''Copy files to BIDS-conform destination directories.
@@ -258,7 +277,7 @@ def copy_files_to_bids_structure(filepath_df,bids_df):
     bids_df_src_filepaths = pd.merge(bids_df,filepath_df,on='participant_id')
     
     for idx,row in bids_df_src_filepaths.iterrows():
-        shutil.copy2(row['filepath'],row['bids_dir'])
+        shutil.copy2(row['filepath'],row['bids_dst_dir'])
 
 if __name__ == '__main__':
     pass
