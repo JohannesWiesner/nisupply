@@ -5,15 +5,15 @@ import shutil
 import re
 import pathlib
 
-# TO-DO: Preceding directories should be optional
 # TO-DO: Several file extensions should be allowed (e.g. '.nii' and '.nii.gz')
 # TO-DO: File extensions should be optional?
 # TO-DO: Searching for a specific order of directories should be included (e.g. search for files
 # that contain '\session_1\anat\)
-def find_files(src_dir,file_extension='.nii',file_prefix=None,preceding_dirs='anat'):
+def find_files(src_dir,file_extension='.nii.gz',file_prefix=None,preceding_dirs=None):
     '''Find files in a source directory. Files are filterd using a 
-    specified file extension, an optional prefix and a list of preceding
-    directories that should be part of the filepath.
+    specified file extension. Optionally, the function can filter for files
+    using an optional prefix and a list of preceding directories that should be 
+    part of the filepath.
     
     Parameters
     ----------
@@ -21,13 +21,14 @@ def find_files(src_dir,file_extension='.nii',file_prefix=None,preceding_dirs='an
         A directory path that should be search for files.
     
     file_extension: str
-        Default: '.nii'
+        Default: '.nii.gz'
     
     file_prefix: str
         An optional file-prefix. Default: None
     
-    preceding_dirs: str or list of strs
+    preceding_dirs: str, list of strs or None
         Names of directories that should be part of the final filepath
+        Default: None
         
     Returns
     -------
@@ -35,74 +36,108 @@ def find_files(src_dir,file_extension='.nii',file_prefix=None,preceding_dirs='an
         A list containing filepaths for the found files.
 
     '''
-    
-    
-    # if only one preceding dir provided as string, convert to list
-    if isinstance(preceding_dirs,str):
-        preceding_dirs = [preceding_dirs]
     
     # change provided scr_dir path to os-specific slash type
     src_dir = os.path.normpath(src_dir)
     
     filepath_list = []
     
+    # search for files that match the given file extension.
+    # if prefix is defined, only append files that match the given prefix
     for (paths, dirs, files) in os.walk(src_dir):
+        for file in files:
+            if file.lower().endswith(file_extension):
+                if file_prefix:
+                    if file.lower().startswith(file_prefix):
+                        filepath_list.append(os.path.join(paths,file))
+                else:
+                    filepath_list.append(os.path.join(paths,file))
+                    
+    # delete filepath from list if its path contains one of
+    # the given preceding directories
+    if preceding_dirs:
         
-        # only further examination of file if its path contains one of
-        # the given preceding directories
-        if any(path_component in paths.split(os.sep) for path_component in preceding_dirs):
-            for file in files:
-                if file.lower().endswith(file_extension):
-                    if file_prefix:
-                        if file.lower().startswith(file_prefix):
-                            filepath_list.append(os.path.join(paths, file))
-                    else:
-                        filepath_list.append(os.path.join(paths, file))
+        # if only one preceding_dirs is provided as string, convert to list
+        # of single string
+        if isinstance(preceding_dirs,str):
+            preceding_dirs = [preceding_dirs]
+    
+        tagged_files_indices = []
+        
+        for idx,filepath in enumerate(filepath_list):
+            if not any(path_component in filepath.split(os.sep) for path_component in preceding_dirs):
+                tagged_files_indices.append(idx)
+                
+        for idx in sorted(tagged_files_indices,reverse=True):
+            del filepath_list[idx]
     
     return filepath_list
 
-def get_participant_filepaths(participant_ids,participant_dirs,file_extension='.nii',
-                              file_prefix=None,preceding_dirs='anat'):
-    '''Find files for each participant. 
+def get_participant_id(filepath):
+    
+    pattern = '(sub-)([a-zA-Z0-9]+)'
+    match = re.search(pattern,filepath)
+    
+    if match is None:
+        raise ValueError('No participant_id was found for this file: {}'.format(filepath))
+    else:
+        return match.group(2)
+
+def get_filepath_df(participant_ids,src_dir,**kwargs):
+    '''Find files for multiple participants. 
     
     Parameters
     ----------
     participant_ids: list
         A list of unique participant IDs.
     
-    participant_dirs: list
-        A list of directories for each participant corresponding to participant_ids. 
-        It is assumed that each directory only contains files for that particular participant. 
+    src_dir: str, or list of str
+        If provided as a single directory, it is assumed that all files of the
+        participants are in the same directory. It is assumed that each filename
+        contains a BIDS-conform subject id. In consequence, the function will match files and 
+        participant_ids using a regex match.
+        
+        If a list of directories is provided, it is assumed that each directory 
+        only contains files for that particular participant, thus the files
+        are mapped to the respective participant id without a regex match.
     
-    See find_files for documentation of other parameters.
+    kwargs: key, value mappings
+        Other keyword arguments are passed to :func:`~nisupply.find_files`
         
     Returns
     -------
-    filepath_list: list
-        A list containing filepaths for the found files.
+    filepath_df: pd.DataFrame
+        A data frame with the provided participant ids in the first column 
+        and all corresponding filepaths in the second column.
 
     '''
     
-    
-    filepaths_dict = {}
-    
-    # walk through each participants directory and find files
-    for participant_id,participant_dir in zip(participant_ids,participant_dirs):
-        	
-        participant_filepath_list = find_files(src_dir=participant_dir,
-                                           file_extension=file_extension,
-                                           file_prefix=file_prefix,
-                                           preceding_dirs=preceding_dirs)
-                        
+    if isinstance(src_dir,list):
         
-        filepaths_dict[participant_id] = participant_filepath_list
+        filepaths_dict = {}
+        
+        # walk through each participants directory and find files, then add
+        # map the list of found files to respective participant id
+        for participant_id,participant_dir in zip(participant_ids,src_dir):
+            filepath_list = find_files(src_dir=participant_dir,**kwargs)
+            filepaths_dict[participant_id] = filepath_list
     
-    # create dataframe from dictionary
-    filepaths_df = pd.DataFrame([(key, var) for (key, L) in filepaths_dict.items() for var in L],columns=['participant_id', 'filepath'])
+    elif isinstance(src_dir,str):
+        
+        filepaths_dict = {participant_id: [] for participant_id in participant_ids}
+        filepath_list = find_files(src_dir=src_dir,**kwargs)
+        
+        for filepath in filepath_list:
+            participant_id = get_participant_id(filepath)
+            filepaths_dict[participant_id].append(filepath)
+    
+    # create dataframe from dictionary of lists
+    filepath_df = pd.DataFrame([(key, var) for (key, L) in filepaths_dict.items() for var in L],
+                               columns=['participant_id','filepath'])
 
-    return filepaths_df
+    return filepath_df
 
-# TO-DO: Implement this function in get_filepath_df
+# TO-DO: Implement this function in get_bids_df
 def uncompress_files(filepath_list,dst_dir=None):
     '''Uncompress files and obtain a list of the uncompressed files
     
@@ -167,13 +202,13 @@ def get_session_label(filepath):
         return match.group(2)
     
 # get session dates as ascending integer timepoints (starting from 1)
-def get_timepoint(filepaths_df):
+def get_timepoint(filepath_df):
     
     # create timepoints for session dates
-    filepaths_df['t'] = filepaths_df.sort_values(['participant_id', 'session_label']).drop_duplicates(['participant_id', 'session_label']).groupby('participant_id').cumcount()
-    filepaths_df['t'] = filepaths_df['t'].fillna(method='ffill').astype(int)
+    filepath_df['t'] = filepath_df.sort_values(['participant_id', 'session_label']).drop_duplicates(['participant_id', 'session_label']).groupby('participant_id').cumcount()
+    filepath_df['t'] = filepath_df['t'].fillna(method='ffill').astype(int)
     
-    return filepaths_df
+    return filepath_df
     
 def get_run_number(filepath):
     
@@ -195,16 +230,16 @@ def get_echo_number(filepath):
     else:
         return match.group(3)
 
-def get_filepath_df(participant_ids,participant_dirs,file_extension='.nii',
-                    file_prefix=None,preceding_dirs='anat',add_session_label=False,
-                    add_run_number=False,add_echo_number=False,add_timepoint=False):
+def get_bids_df(participant_ids,src_dir,file_extension='.nii',file_prefix=None,
+                preceding_dirs='anat',add_session_label=False,add_run_number=False,
+                add_echo_number=False,add_timepoint=False):
     
     # get dataframe with participant ids and filepaths
-    filepath_df = get_participant_filepaths(participant_ids=participant_ids,
-                                            participant_dirs=participant_dirs,
-                                            file_extension=file_extension,
-                                            file_prefix=file_prefix,
-                                            preceding_dirs=preceding_dirs)
+    filepath_df = get_filepath_df(participant_ids=participant_ids,
+                                  src_dir=src_dir,
+                                  file_extension=file_extension,
+                                  file_prefix=file_prefix,
+                                  preceding_dirs=preceding_dirs)
 
     if add_session_label == True:
         filepath_df['session_label'] = filepath_df['filepath'].map(get_session_label)
@@ -233,7 +268,7 @@ def get_derivative_dst_dirs(dst_dir,bids_df):
         be created.
         
     bids_df: pd.DataFrame
-        A DataFrame containing BIDS-specific columns 'participant_id',
+        A DataFrame containing the BIDS-specific columns 'participant_id',
         'session_label' and 'data_type'. 
         
     Returns
