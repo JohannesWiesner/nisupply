@@ -53,7 +53,7 @@ def find_files(src_dir,file_extension='.nii.gz',file_prefix=None,preceding_dirs=
                 else:
                     filepath_list.append(os.path.join(paths,file))
                     
-    # delete filepath from list if its path contains one of
+    # delete filepath from list if it does not contains one of 
     # the given preceding directories
     if preceding_dirs:
         
@@ -102,7 +102,7 @@ def get_filepath_df(participant_ids,src_dir,**kwargs):
         are mapped to the respective participant id without a regex match.
     
     kwargs: key, value mappings
-        Other keyword arguments are passed to :func:`~nisupply.find_files`
+        Other keyword arguments are passed to :func:`nisupply.find_files`
         
     Returns
     -------
@@ -189,8 +189,14 @@ def uncompress_files(filepath_list,dst_dir=None):
             
         filepath_list_uncompressed.append(filepath_uncompressed)
             
-    return filepath_list_uncompressed
+    return 
 
+def get_data_type(filepath):
+    
+    valid_data_types = ['func','dwi','fmap','anat','meg','eeg','ieeg','beh']
+    
+    return([data_type for data_type in valid_data_types if (data_type in filepath.split(os.sep))])[0]
+        
 def get_session_label(filepath):
     
     pattern = '(_ses-)(\d+)'
@@ -230,17 +236,60 @@ def get_echo_number(filepath):
     else:
         return match.group(3)
 
-def get_bids_df(participant_ids,src_dir,file_extension='.nii',file_prefix=None,
-                preceding_dirs='anat',add_session_label=False,add_run_number=False,
-                add_echo_number=False,add_timepoint=False):
+def get_bids_df(participant_ids,src_dir,add_data_type=False,add_session_label=False,
+                add_timepoint=False,add_run_number=False,add_echo_number=False,**kwargs):
+    '''Get filepaths for all participants and add BIDS-information using information
+    from filepaths. This function requires the filepaths to follow BIDS-specification.
+    
+    Parameters
+    ----------
+    participant_ids: list
+        A list of unique participant IDs.
+        
+    src_dir: str, or list of str
+        If provided as a single directory, it is assumed that all files of the
+        participants are in the same directory. It is assumed that each filename
+        contains a BIDS-conform subject id. In consequence, the function will match files and 
+        participant_ids using a regex match.
+        
+        If a list of directories is provided, it is assumed that each directory 
+        only contains files for that particular participant, thus the files
+        are mapped to the respective participant id without a regex match.
+        
+    add_data_type : bool, optional
+        Extract the data type from the filepath. The default is False.
+    
+    add_session_label : bool, optional
+        Extract the session label from the filepath. The default is False.
+    
+    add_timepoint : bool, optional
+        Add the timepoint based on the session label. It is assumed
+        that session label follows alphanumeric convention. The default is False.
+        
+    add_run_number : bool, optional
+        Extract the run number from the filepath. The default is False.
+        
+    add_echo_number : TYPE, optional
+        Extract the echo number from the filepath. The default is False.
+        
+    **kwargs : key,value mappings
+        Other keyword arguments are passed to :func:`nisupply.find_files`.
+
+    Returns
+    -------
+   bids_df : pd.DataFrame
+        A dataframe that contains columns containing BIDS-conform information.
+
+    '''
     
     # get dataframe with participant ids and filepaths
     filepath_df = get_filepath_df(participant_ids=participant_ids,
                                   src_dir=src_dir,
-                                  file_extension=file_extension,
-                                  file_prefix=file_prefix,
-                                  preceding_dirs=preceding_dirs)
+                                  **kwargs)
 
+    if add_data_type == True:
+        filepath_df['data_type'] = filepath_df['filepath'].map(get_data_type)
+        
     if add_session_label == True:
         filepath_df['session_label'] = filepath_df['filepath'].map(get_session_label)
     
@@ -268,8 +317,7 @@ def get_derivative_dst_dirs(dst_dir,bids_df):
         be created.
         
     bids_df: pd.DataFrame
-        A DataFrame containing the BIDS-specific columns 'participant_id',
-        'session_label' and 'data_type'. 
+        A dataframe as returned by :func:`nisupply.get_bids_df`
         
     Returns
     -------
@@ -287,7 +335,7 @@ def get_derivative_dst_dirs(dst_dir,bids_df):
 
 def create_bids_structure(bids_df):
     '''Create BIDS-conform directory structure based on BIDS-conform
-    directory paths
+    directory paths.
     
     Parameters
     ----------
