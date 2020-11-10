@@ -112,7 +112,7 @@ def get_filepath_df(participant_ids,src_dir,**kwargs):
 
     '''
     
-    if isinstance(src_dir,list):
+    if isinstance(src_dir,(list,pd.Series)):
         
         filepaths_dict = {}
         
@@ -307,8 +307,10 @@ def get_bids_df(participant_ids,src_dir,add_data_type=False,add_session_label=Fa
     
     return filepath_df
 
-def get_derivative_dst_dirs(dst_dir,bids_df):
+def add_bids_dst_dirs(dst_dir,bids_df):
     '''Adds a column of BIDS-conform destination directories for each file.
+    The destination directories will be build using an overall input destination 
+    directory for all files and information from BIDS-columns in the input bids_df.
     
     Parameters
     ----------
@@ -322,20 +324,16 @@ def get_derivative_dst_dirs(dst_dir,bids_df):
     Returns
     -------
     bids_df: pd.DataFrame
-        The input data frame where a column 'bids_dst_dir' is added.
+        bids_df with an additional column 'bids_dst_dir'.
 
     '''
     dst_dir = os.path.normpath(dst_dir)
-    bids_df['bids_dst_dir'] =  bids_df.apply(lambda row: os.path.join(dst_dir,
-                                                                      'sub-'+ row['participant_id'],
-                                                                      row['session_label'],
-                                                                      row['data_type']),axis=1)
+    bids_df['bids_dst_dir'] =  bids_df.apply(lambda row: os.path.join(dst_dir,'sub-'+ row['participant_id'],row['session_label'],row['data_type']),axis=1)
     
     return bids_df
 
-def create_bids_structure(bids_df):
-    '''Create BIDS-conform directory structure based on BIDS-conform
-    directory paths.
+def create_bids_dst_dirs(bids_df):
+    '''Create BIDS-conform directory structure 
     
     Parameters
     ----------
@@ -353,7 +351,8 @@ def create_bids_structure(bids_df):
         if not os.path.isdir(bids_dir):
             os.makedirs(bids_dir)
 
-def copy_files_to_bids_structure(filepath_df,bids_df):
+# FIXME: DEPRECATED
+def copy_files_to_bids_dst_dirs(filepath_df,bids_df):
     '''Copy files to BIDS-conform destination directories.
     
     Parameters
