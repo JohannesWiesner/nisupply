@@ -236,10 +236,11 @@ def get_echo_number(filepath):
     else:
         return match.group(3)
 
-def get_bids_df(participant_ids,src_dir,add_data_type=False,add_session_label=False,
-                add_timepoint=False,add_run_number=False,add_echo_number=False,**kwargs):
+def get_bids_df(participant_ids,src_dir,add_data_type=True,add_session_label=True,
+                add_timepoint=True,add_run_number=True,add_echo_number=True,**kwargs):
     '''Get filepaths for all participants and add BIDS-information using information
-    from filepaths. This function requires the filepaths to follow BIDS-specification.
+    from filepaths. The following extraction of entities and their labels 
+    requires the filepaths to follow BIDS-specification.
     
     Parameters
     ----------
