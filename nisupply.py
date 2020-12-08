@@ -5,8 +5,8 @@ import shutil
 import re
 import pathlib
 
-# TO-DO: Several file extensions should be allowed (e.g. '.nii' and '.nii.gz')
-# TO-DO: File extensions should be optional?
+# TO-DO: Several file extensions should be allowed (e.g.'.nii' or '.nii.gz', or '.json')
+# TO-DO: File extensions should be optional? = just return all files you can find
 # TO-DO: Searching for a specific order of directories should be included (e.g. search for files
 # that contain '\session_1\anat\)
 def find_files(src_dir,file_extension='.nii.gz',file_prefix=None,preceding_dirs=None):
@@ -18,7 +18,7 @@ def find_files(src_dir,file_extension='.nii.gz',file_prefix=None,preceding_dirs=
     Parameters
     ----------
     src_dir: path
-        A directory path that should be search for files.
+        A directory that should be searched for files.
     
     file_extension: str
         Default: '.nii.gz'
@@ -27,7 +27,7 @@ def find_files(src_dir,file_extension='.nii.gz',file_prefix=None,preceding_dirs=
         An optional file-prefix. Default: None
     
     preceding_dirs: str, list of strs or None
-        Names of directories that should be part of the final filepath
+        Names of directories that must be components of each filepath
         Default: None
         
     Returns
@@ -73,6 +73,8 @@ def find_files(src_dir,file_extension='.nii.gz',file_prefix=None,preceding_dirs=
     
     return filepath_list
 
+# FIXME: Allow user to define own regex pattern which extracts a participant id
+# from a NIFTI-filename. The current pattern assumes BIDS-conformity. 
 def get_participant_id(filepath):
     
     pattern = '(sub-)([a-zA-Z0-9]+)'
@@ -83,8 +85,11 @@ def get_participant_id(filepath):
     else:
         return match.group(2)
 
+# FIXME: If scr_dir is list-like, perform sanity check and ensure that
+# each participant id is mapped on one and only one source directory (aka.
+# both arrays must be the same length)
 def get_filepath_df(participant_ids,src_dir,**kwargs):
-    '''Find files for multiple participants. 
+    '''Find files for multiple participants in one or multiple source directories. 
     
     Parameters
     ----------
@@ -117,11 +122,19 @@ def get_filepath_df(participant_ids,src_dir,**kwargs):
         filepaths_dict = {}
         
         # walk through each participants directory and find files, then add
-        # map the list of found files to respective participant id
+        # map the list of found files to the respective participant id
         for participant_id,participant_dir in zip(participant_ids,src_dir):
             filepath_list = find_files(src_dir=participant_dir,**kwargs)
             filepaths_dict[participant_id] = filepath_list
     
+    # TO-DO: Create a separate function for the following code 
+    # 1.) Creates a dictionary of empty lists using participant_ids
+    # 2.) Fill those lists with found files using a specified function
+    # 3.) Create a dataframe from this dictionary of lists
+    # 4.) The first column should always be called 'participant_id', for 
+    # the second column it might make sense to make this more explicit in case
+    # only a specified set of files is search for (e.g. 'json_filepath')
+    # This function can then be imported in other modules such as pycat. 
     elif isinstance(src_dir,str):
         
         filepaths_dict = {participant_id: [] for participant_id in participant_ids}
@@ -139,7 +152,7 @@ def get_filepath_df(participant_ids,src_dir,**kwargs):
 
 # TO-DO: Implement this function in get_bids_df
 def uncompress_files(filepath_list,dst_dir=None):
-    '''Uncompress files and obtain a list of the uncompressed files
+    '''Uncompress files and obtain a list of the uncompressed files.
     
     Parameters
     ----------
@@ -236,6 +249,14 @@ def get_echo_number(filepath):
     else:
         return match.group(3)
 
+# TO-DO: Implement boolean keyword argument 'bids_conformity (True/False)'. 
+# -> Running add_data_type, add_session_label, etc. only makes sense if the filepaths 
+# themselves are BIDS-conform.
+# IDEA: If participants_ids is provided together with list-like src_dir, it should
+# also be possible to just pass a pd.DataFrame to this function? 
+# TO-DO: The regex patterns for the 'bids-entity-extraction' functions like get_echo_number,
+# get run_number, etc. should be based on the offical .json file from pybids. Accordingly,
+# this function should always have the newest .json file available. 
 def get_bids_df(participant_ids,src_dir,add_data_type=True,add_session_label=True,
                 add_timepoint=True,add_run_number=True,add_echo_number=True,**kwargs):
     '''Get filepaths for all participants and add BIDS-information using information
