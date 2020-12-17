@@ -6,6 +6,7 @@ import re
 import pathlib
 
 # TO-DO: Several file extensions should be allowed (e.g.'.nii' or '.nii.gz', or '.json')
+# Look-up https://github.com/JohannesWiesner/demetrius for how to do this
 # TO-DO: File extensions should be optional? = just return all files you can find
 # TO-DO: Searching for a specific order of directories should be included (e.g. search for files
 # that contain '\session_1\anat\)
@@ -158,7 +159,7 @@ def uncompress_files(filepath_list,dst_dir=None):
     ----------
     filepath_list : list of str
         A list of paths of the the compressed files. The function
-        assumes that the filename has excatly two extensions: The first
+        assumes that the filename has exactly two extensions: The first
         extension represents the native extension of the file, the second extension 
         represents the compression extension (i.e. 'nii.gz').
     
@@ -255,7 +256,7 @@ def get_echo_number(filepath):
 # IDEA: If participants_ids is provided together with list-like src_dir, it should
 # also be possible to just pass a pd.DataFrame to this function? 
 # TO-DO: The regex patterns for the 'bids-entity-extraction' functions like get_echo_number,
-# get run_number, etc. should be based on the offical .json file from pybids. Accordingly,
+# get run_number, etc. should be based on the offical .json file from pybids. As a consequence,
 # this function should always have the newest .json file available. 
 def get_bids_df(participant_ids,src_dir,add_data_type=True,add_session_label=True,
                 add_timepoint=True,add_run_number=True,add_echo_number=True,**kwargs):
