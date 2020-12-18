@@ -54,8 +54,8 @@ def find_files(src_dir,file_extension='.nii.gz',file_prefix=None,preceding_dirs=
                 else:
                     filepath_list.append(os.path.join(paths,file))
                     
-    # delete filepath from list if it does not contains one of 
-    # the given preceding directories
+    # Filter found files for all given preceding direcories by deleting filepaths from list 
+    # whose path components do not match any of the given preceding directories
     if preceding_dirs:
         
         # if only one preceding_dirs is provided as string, convert to list
@@ -71,6 +71,10 @@ def find_files(src_dir,file_extension='.nii.gz',file_prefix=None,preceding_dirs=
                 
         for idx in sorted(tagged_files_indices,reverse=True):
             del filepath_list[idx]
+    
+    # Raise Error if no files where found
+    if len(filepath_list) == 0:
+        raise ValueError('No files that match the given filter(s) where found within this directory {}'.format(src_dir))
     
     return filepath_list
 
