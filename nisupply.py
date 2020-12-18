@@ -5,13 +5,13 @@ import shutil
 import re
 import pathlib
 
-# TO-DO: Several file extensions should be allowed (e.g.'.nii' or '.nii.gz', or '.json')
+# TO-DO: Several file extensions should be allowed (e.g. search for '.nii' and '.nii.gz' and '.json')
 # Look-up https://github.com/JohannesWiesner/demetrius for how to do this
 # TO-DO: File extensions should be optional? = just return all files you can find
 # TO-DO: Searching for a specific order of directories should be included (e.g. search for files
 # that contain '\session_1\anat\)
 def find_files(src_dir,file_extension='.nii.gz',file_prefix=None,preceding_dirs=None):
-    '''Find files in a source directory. Files are filterd using a 
+    '''Find files in a single source directory. Files are found based on a 
     specified file extension. Optionally, the function can filter for files
     using an optional prefix and a list of preceding directories that should be 
     part of the filepath.
