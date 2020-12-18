@@ -10,6 +10,7 @@ import pathlib
 # TO-DO: File extensions should be optional? = just return all files you can find
 # TO-DO: Searching for a specific order of directories should be included (e.g. search for files
 # that contain '\session_1\anat\)
+# FIXME: file_extension should be better called suffix to match nomenklatur (see https://www.tutorialspoint.com/python/string_endswith.htm)
 def find_files(src_dir,file_extension='.nii.gz',file_prefix=None,preceding_dirs=None):
     '''Find files in a single source directory. Files are found based on a 
     specified file extension. Optionally, the function can filter for files
@@ -132,7 +133,7 @@ def get_filepath_df(participant_ids,src_dir,**kwargs):
             filepath_list = find_files(src_dir=participant_dir,**kwargs)
             filepaths_dict[participant_id] = filepath_list
     
-    # TO-DO: Create a separate function for the following code 
+    # TO-DO: Create a separate function for the following code? 
     # 1.) Creates a dictionary of empty lists using participant_ids
     # 2.) Fill those lists with found files using a specified function
     # 3.) Create a dataframe from this dictionary of lists
