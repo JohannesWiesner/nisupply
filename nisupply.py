@@ -5,16 +5,13 @@ import shutil
 import re
 import pathlib
 
-# TO-DO: Several file extensions should be allowed (e.g. search for '.nii' and '.nii.gz' and '.json')
-# Look-up https://github.com/JohannesWiesner/demetrius for how to do this
-# TO-DO: File extensions should be optional? = just return all files you can find
-# TO-DO: Searching for a specific order of directories should be included (e.g. search for files
-# that contain '\session_1\anat\)
-# FIXME: file_extension should be better called suffix to match nomenklatur (see https://www.tutorialspoint.com/python/string_endswith.htm)
-def find_files(src_dir,file_extension='.nii.gz',file_prefix=None,preceding_dirs=None):
+# TO-DO?: File extensions should be optional = just return all files you can find
+# TO-DO: Searching for a specific order of directories should be included 
+# (e.g. search for files that contain '\session_1\anat\)
+def find_files(src_dir,file_suffix='.nii.gz',file_prefix=None,preceding_dirs=None):
     '''Find files in a single source directory. Files are found based on a 
-    specified file extension. Optionally, the function can filter for files
-    using an optional prefix and a list of preceding directories that should be 
+    specified file suffix. Optionally, the function can filter for files
+    using an optional file prefix and a list of preceding directories that should be 
     part of the filepath.
     
     Parameters
@@ -22,11 +19,13 @@ def find_files(src_dir,file_extension='.nii.gz',file_prefix=None,preceding_dirs=
     src_dir: path
         A directory that should be searched for files.
     
-    file_extension: str
+    file_suffix: str, tuple of strs
+        One or multiple strings on which the end of the filepath should match.
         Default: '.nii.gz'
     
-    file_prefix: str
-        An optional file-prefix. Default: None
+    file_prefix: str, tuple of strs
+        One or multiple strings on which the beginning of the filepath should match.
+        Default: None
     
     preceding_dirs: str, list of strs or None
         Names of directories that must be components of each filepath
@@ -48,7 +47,7 @@ def find_files(src_dir,file_extension='.nii.gz',file_prefix=None,preceding_dirs=
     # if prefix is defined, only append files that match the given prefix
     for (paths, dirs, files) in os.walk(src_dir):
         for file in files:
-            if file.lower().endswith(file_extension):
+            if file.lower().endswith(file_suffix):
                 if file_prefix:
                     if file.lower().startswith(file_prefix):
                         filepath_list.append(os.path.join(paths,file))
