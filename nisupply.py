@@ -8,6 +8,10 @@ import pathlib
 # TO-DO?: File extensions should be optional = just return all files you can find
 # TO-DO: Searching for a specific order of directories should be included 
 # (e.g. search for files that contain '\session_1\anat\)
+# TO-DO: Allow user also to define regex. For example, this is the offical CAT12
+# regex that is also used in CAT12 to find .xml files: ^cat_.*\.xml$
+# Using regex instead (or in combination) with/of file_prefix + file_extension 
+# might be more 'fail-safe' to find exactly the files, that the user is looking for
 def find_files(src_dir,file_suffix='.nii.gz',file_prefix=None,preceding_dirs=None):
     '''Find files in a single source directory. Files are found based on a 
     specified file suffix. Optionally, the function can filter for files
@@ -54,8 +58,8 @@ def find_files(src_dir,file_suffix='.nii.gz',file_prefix=None,preceding_dirs=Non
                 else:
                     filepath_list.append(os.path.join(paths,file))
                     
-    # Filter found files for all given preceding direcories by deleting filepaths from list 
-    # whose path components do not match any of the given preceding directories
+    # Filter list of found files by deleting filepaths from list whose path 
+    # components do not match any of the given preceding directories
     if preceding_dirs:
         
         # if only one preceding_dirs is provided as string, convert to list
@@ -79,7 +83,7 @@ def find_files(src_dir,file_suffix='.nii.gz',file_prefix=None,preceding_dirs=Non
     return filepath_list
 
 # FIXME: Allow user to define own regex pattern which extracts a participant id
-# from a NIFTI-filename. The current pattern assumes BIDS-conformity. 
+# from a filepath. The current pattern assumes BIDS-conformity (e.g. sub-123). 
 def get_participant_id(filepath):
     
     pattern = '(sub-)([a-zA-Z0-9]+)'
@@ -92,7 +96,8 @@ def get_participant_id(filepath):
 
 # FIXME: If scr_dir is list-like, perform sanity check and ensure that
 # each participant id is mapped on one and only one source directory (aka.
-# both arrays must be the same length)
+# both arrays must be the same length). 
+# FIXME: Both particpant_ids and list-like src_dir should be checked for NaNs. 
 def get_filepath_df(participant_ids,src_dir,**kwargs):
     '''Find files for multiple participants in one or multiple source directories. 
     
@@ -262,6 +267,11 @@ def get_echo_number(filepath):
 # TO-DO: The regex patterns for the 'bids-entity-extraction' functions like get_echo_number,
 # get run_number, etc. should be based on the offical .json file from pybids. As a consequence,
 # this function should always have the newest .json file available. 
+# FIXME: In case the dataset is bids_conform it would be more handy to just
+# rely on the input keyword-argument bids_conformity (see above) and then just
+# automatically run all extraction-functions (add_data_type,add_session_label,etc.)
+# If the user only wants to extract certain entities, a input dictionary of
+# booleans should be passed (e.g. {'data_type':True,'echo_number':False})
 def get_bids_df(participant_ids,src_dir,add_data_type=True,add_session_label=True,
                 add_timepoint=True,add_run_number=True,add_echo_number=True,**kwargs):
     '''Get filepaths for all participants and add BIDS-information using information
