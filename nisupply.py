@@ -83,7 +83,8 @@ def find_files(src_dir,file_suffix='.nii.gz',file_prefix=None,preceding_dirs=Non
     return filepath_list
 
 # FIXME: Allow user to define own regex pattern which extracts a participant id
-# from a filepath. The current pattern assumes BIDS-conformity (e.g. sub-123). 
+# from a filepath. The current pattern assumes BIDS-conformity (e.g. sub-123).
+# FIXME: if match is None, the function should return a NaN value. 
 def get_participant_id(filepath):
     
     pattern = '(sub-)([a-zA-Z0-9]+)'
@@ -219,7 +220,9 @@ def get_data_type(filepath):
     valid_data_types = ['func','dwi','fmap','anat','meg','eeg','ieeg','beh']
     
     return([data_type for data_type in valid_data_types if (data_type in filepath.split(os.sep))])[0]
-        
+
+# FIXME: Allow user to define own regex pattern. The current pattern assumes BIDS-conformity.
+# FIXME: if match is None, the function should return a NaN value. 
 def get_session_label(filepath):
     
     pattern = '(_ses-)(\d+)'
@@ -230,7 +233,11 @@ def get_session_label(filepath):
     else:
         return match.group(2)
     
-# get session dates as ascending integer timepoints (starting from 1)
+# Derive integer timepoints from session labels
+# NOTE: this function assumes that the session labels can be sorted alphanumerically and
+# that there is some sort of 'time logic' encoded in the session labels
+# FIXME: 't' should start from 1 and not from 0 in order to stick to BIDS convention
+# In BIDS, lists start from 1 (e.g. runs also start from 1 and not from 0). 
 def get_timepoint(filepath_df):
     
     # create timepoints for session dates
@@ -238,7 +245,9 @@ def get_timepoint(filepath_df):
     filepath_df['t'] = filepath_df['t'].fillna(method='ffill').astype(int)
     
     return filepath_df
-    
+
+# FIXME: Allow user to define own regex pattern. The current pattern assumes BIDS-conformity.
+# FIXME: if match is None, the function should return a NaN value. 
 def get_run_number(filepath):
     
     pattern = '(_run-)(0)(\d+)'
@@ -248,7 +257,9 @@ def get_run_number(filepath):
         return 'no_run_number'
     else:
         return match.group(3)
-    
+
+# FIXME: Allow user to define own regex pattern. The current pattern assumes BIDS-conformity.
+# FIXME: if match is None, the function should return a NaN value. 
 def get_echo_number(filepath):
     
     pattern = '(_echo-)(0)(\d+)'
