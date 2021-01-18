@@ -4,11 +4,13 @@ import gzip
 import shutil
 import re
 import pathlib
+from warnings import warn
 
 # TO-DO?: File extensions should be optional = just return all files you can find
 # TO-DO: Searching for a specific order of directories should be included 
 # (e.g. search for files that contain '\session_1\anat\)
-# TO-DO: Allow user also to define regex. For example, this is the offical CAT12
+# TO-DO: Allow user also to define regex. You might want to use the pathmatcher
+# module for that. For example, this is the offical CAT12
 # regex that is also used in CAT12 to find .xml files: ^cat_.*\.xml$
 # Using regex instead (or in combination) with/of file_prefix + file_extension 
 # might be more 'fail-safe' to find exactly the files, that the user is looking for
@@ -153,8 +155,14 @@ def get_filepath_df(participant_ids,src_dir,**kwargs):
         
         for filepath in filepath_list:
             participant_id = get_participant_id(filepath)
-            filepaths_dict[participant_id].append(filepath)
-    
+            
+            try:
+                filepaths_dict[participant_id].append(filepath)
+            except KeyError:
+                # FIXME: Suppress printing the input string
+                # https://stackoverflow.com/questions/2187269/print-only-the-message-on-warnings
+                warn(f"Extracted {participant_id} from {filepath} but could not find any matching participant_id in provided participant_id\n")
+
     # create dataframe from dictionary of lists
     filepath_df = pd.DataFrame([(key, var) for (key, L) in filepaths_dict.items() for var in L],
                                columns=['participant_id','filepath'])
@@ -270,7 +278,7 @@ def get_echo_number(filepath):
     else:
         return match.group(3)
 
-# TO-DO: Implement boolean keyword argument 'bids_conformity (True/False)'. 
+# TO-DO: Implement boolean keyword argument 'bids_conformity' (True/False)'. 
 # -> Running add_data_type, add_session_label, etc. only makes sense if the filepaths 
 # themselves are BIDS-conform.
 # IDEA: If participants_ids is provided together with list-like src_dir, it should
