@@ -8,4 +8,4 @@ Some currently available neuroscientific tools produce files and directory struc
 The nisupply module requires all the input files to be in the NIFTI format and does not provide any functions to convert DICOM files to NIFTI files. If you are looking for tools to do that, check out [mne-bids](https://mne.tools/mne-bids/stable/index.html), [heudiconv](https://heudiconv.readthedocs.io/en/latest/) and [bidscoin](https://bidscoin.readthedocs.io/en/latest/) that are useful packages along your way to create BIDS-conform data structures.
 
 # Similar Projects
-Have a look at Stephen Larroque's [pathmatcher](https://github.com/lrq3000/pathmatcher) library, it might also suit your needs!
+Have a look at Stephen Larroque's [pathmatcher](https://github.com/lrq3000/pathmatcher) library or the [interfaces.io module](https://nipype.readthedocs.io/en/latest/api/generated/nipype.interfaces.io.html) from `nipype`, they might also suit your needs!
