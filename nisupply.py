@@ -1,3 +1,13 @@
+# -*- coding: utf-8 -*-
+"""
+Nisupply: A repository for finding and managing files in 
+(unstructured) neuroimaging datasets.
+
+@author: Johannes.Wiesner
+"""
+
+
+import numpy as np
 import pandas as pd
 import os
 import gzip
@@ -6,18 +16,21 @@ import re
 import pathlib
 from warnings import warn
 
-# TO-DO?: File extensions should be optional = just return all files you can find
+# TO-DO: File extensions should be optional = just return all files you can find
 # TO-DO: Searching for a specific order of directories should be included 
 # (e.g. search for files that contain '\session_1\anat\)
+# For that maybe this stackoverflow post helps: 
+# https://stackoverflow.com/questions/5141437/filtering-os-walk-dirs-and-files
 # TO-DO: Allow user also to define regex. You might want to use the pathmatcher
 # module for that. For example, this is the offical CAT12
 # regex that is also used in CAT12 to find .xml files: ^cat_.*\.xml$
 # Using regex instead (or in combination) with/of file_prefix + file_extension 
 # might be more 'fail-safe' to find exactly the files, that the user is looking for
-def find_files(src_dir,file_suffix='.nii.gz',file_prefix=None,preceding_dirs=None):
+def find_files(src_dir,file_suffix='.nii.gz',file_prefix=None,preceding_dirs=None,
+                case_sensitive=True):
     '''Find files in a single source directory. Files are found based on a 
     specified file suffix. Optionally, the function can filter for files
-    using an optional file prefix and a list of preceding directories that should be 
+    using an optional file prefix and a list of preceding directories that must be 
     part of the filepath.
     
     Parameters
@@ -34,8 +47,15 @@ def find_files(src_dir,file_suffix='.nii.gz',file_prefix=None,preceding_dirs=Non
         Default: None
     
     preceding_dirs: str, list of strs or None
-        Names of directories that must be components of each filepath
+        Single name of a directory or list of directories that must be 
+        components of each filepath
         Default: None
+    
+    case_sensitive: Boolean
+        If True, matching is done by the literal input of file suffixes and
+        prefixes and files. If False, both the inputs and the files are converted
+        to lowercase first in order to match on characters only regardless of lower-
+        or uppercase-writing. 
         
     Returns
     -------
@@ -49,13 +69,19 @@ def find_files(src_dir,file_suffix='.nii.gz',file_prefix=None,preceding_dirs=Non
     
     filepath_list = []
     
+    if not case_sensitive:
+        file_suffix = file_suffix.lower()
+        file_prefix = file_prefix.lower()
+        
     # search for files that match the given file extension.
     # if prefix is defined, only append files that match the given prefix
     for (paths, dirs, files) in os.walk(src_dir):
         for file in files:
-            if file.lower().endswith(file_suffix):
+            if not case_sensitive:
+                file = file.lower()
+            if file.endswith(file_suffix):
                 if file_prefix:
-                    if file.lower().startswith(file_prefix):
+                    if file.startswith(file_prefix):
                         filepath_list.append(os.path.join(paths,file))
                 else:
                     filepath_list.append(os.path.join(paths,file))
@@ -84,89 +110,121 @@ def find_files(src_dir,file_suffix='.nii.gz',file_prefix=None,preceding_dirs=Non
     
     return filepath_list
 
-# FIXME: Allow user to define own regex pattern which extracts a participant id
-# from a filepath. The current pattern assumes BIDS-conformity (e.g. sub-123).
-# FIXME: if match is None, the function should return a NaN value. 
-def get_participant_id(filepath):
+def get_participant_id(filepath,pattern='(sub-)([a-zA-Z0-9]+)'):
+    '''Extract a participant ID from a filepath using a regex-match'''
     
-    pattern = '(sub-)([a-zA-Z0-9]+)'
     match = re.search(pattern,filepath)
     
-    if match is None:
-        raise ValueError('No participant_id was found for this file: {}'.format(filepath))
+    if match:
+        return match.group()
     else:
-        return match.group(2)
-
+        warn(f"Could not extract participant ID from {filepath}")
+        return np.nan
+    
 # FIXME: If scr_dir is list-like, perform sanity check and ensure that
 # each participant id is mapped on one and only one source directory (aka.
 # both arrays must be the same length). 
 # FIXME: Both particpant_ids and list-like src_dir should be checked for NaNs. 
-def get_filepath_df(participant_ids,src_dir,**kwargs):
+def get_filepath_df(src_dirs,participant_ids=None,id_pattern='(sub-)([a-zA-Z0-9]+)',**kwargs):
     '''Find files for multiple participants in one or multiple source directories. 
     
     Parameters
     ----------
-    participant_ids: list
-        A list of unique participant IDs.
-    
-    src_dir: str, or list of str
-        If provided as a single directory, it is assumed that all files of the
-        participants are in the same directory. It is assumed that each filename
-        contains a BIDS-conform subject id. In consequence, the function will match files and 
-        participant_ids using a regex match.
+
+    src_dirs: list-like of str, str
+
+        If provided without participant IDS, the function will map each found file
+        to a participant ID using the given regex pattern. 
+
+        If a list of directories is provided together with a list of participant
+        IDs, it is assumed that each directory only contains files for that 
+        particular participant, thus the files are mapped to the respective 
+        participant ID without a regex match.
         
-        If a list of directories is provided, it is assumed that each directory 
-        only contains files for that particular participant, thus the files
-        are mapped to the respective participant id without a regex match.
+        If provided as a single directory together with a list of participant
+        IDs, it is assumed that all files of the participants are in the same directory.
+        The function will then map each found file to one of the given participant IDs using a 
+        specified regex pattern.
+        
     
+    participant_ids: list-like, None
+        A list-like object of unique participant IDs or None
+        Default: None
+        
+    id_pattern: regex-pattern 
+        The regex-pattern that is used to extract the participant ID from
+        each filepath. By default, this pattern uses a BIDS-compliant regex-pattern. 
+        Default: '(sub-)([a-zA-Z0-9]+)'
+        
     kwargs: key, value mappings
         Other keyword arguments are passed to :func:`nisupply.find_files`
         
     Returns
     -------
     filepath_df: pd.DataFrame
-        A data frame with the provided participant ids in the first column 
+        A data frame with the provided participant IDs in the first column 
         and all corresponding filepaths in the second column.
 
     '''
     
-    if isinstance(src_dir,(list,pd.Series)):
+    if not participant_ids:
         
-        filepaths_dict = {}
-        
-        # walk through each participants directory and find files, then add
-        # map the list of found files to the respective participant id
-        for participant_id,participant_dir in zip(participant_ids,src_dir):
-            filepath_list = find_files(src_dir=participant_dir,**kwargs)
-            filepaths_dict[participant_id] = filepath_list
-    
-    # TO-DO: Create a separate function for the following code? 
-    # 1.) Creates a dictionary of empty lists using participant_ids
-    # 2.) Fill those lists with found files using a specified function
-    # 3.) Create a dataframe from this dictionary of lists
-    # 4.) The first column should always be called 'participant_id', for 
-    # the second column it might make sense to make this more explicit in case
-    # only a specified set of files is search for (e.g. 'json_filepath')
-    # This function can then be imported in other modules such as pycat. 
-    elif isinstance(src_dir,str):
-        
-        filepaths_dict = {participant_id: [] for participant_id in participant_ids}
-        filepath_list = find_files(src_dir=src_dir,**kwargs)
-        
-        for filepath in filepath_list:
-            participant_id = get_participant_id(filepath)
+        if isinstance(src_dirs,str):
             
-            try:
-                filepaths_dict[participant_id].append(filepath)
-            except KeyError:
-                # FIXME: Suppress printing the input string
-                # https://stackoverflow.com/questions/2187269/print-only-the-message-on-warnings
-                warn(f"Extracted {participant_id} from {filepath} but could not find any matching participant_id in provided participant_id\n")
-
-    # create dataframe from dictionary of lists
-    filepath_df = pd.DataFrame([(key, var) for (key, L) in filepaths_dict.items() for var in L],
-                               columns=['participant_id','filepath'])
-
+            filepath_list = find_files(src_dir=src_dirs,**kwargs)
+            participant_ids = [get_participant_id(filepath,id_pattern) for filepath in filepath_list]
+            filepath_df = pd.DataFrame({'participant_id':participant_ids,
+                                        'filepath':filepath_list})
+            
+        if isinstance(src_dirs,(list,pd.Series)):
+            
+            filepath_df = pd.DataFrame()
+            
+            for src_dir in src_dirs:
+            
+                filepath_list = find_files(src_dir=src_dir,**kwargs)
+                participant_ids = [get_participant_id(filepath,id_pattern) for filepath in filepath_list]
+                participant_filepath_df = pd.DataFrame({'participant_id':participant_ids,
+                                                        'filepath':filepath_list})
+                
+                filepath_df = filepath_df.append(participant_filepath_df)
+                
+    if participant_ids:
+        
+        if isinstance(participant_ids,str):
+            participant_ids = [participant_ids]
+            
+        if isinstance(src_dirs,str):
+            
+            filepath_dict = {participant_id: [] for participant_id in participant_ids}
+            filepath_list = find_files(src_dir=src_dirs,**kwargs)
+            
+            for filepath in filepath_list:
+                
+                participant_id = get_participant_id(filepath,id_pattern)
+                                
+                try:
+                    filepath_dict[participant_id].append(filepath)
+                    
+                except KeyError:
+                    warn(f"No matching ID in provided IDs found for this extracted ID: {participant_id}")
+    
+        if isinstance(src_dirs,(list,pd.Series)):
+            
+            if not len(src_dirs) == len(participant_ids):
+                raise ValueError('Participant IDs and source directories must be of the same length')
+            
+            filepath_dict = {}
+            
+            for participant_id,participant_dir in zip(participant_ids,src_dirs):
+                filepath_list = find_files(src_dir=participant_dir,**kwargs)
+                filepath_dict[participant_id] = filepath_list
+    
+    
+        filepath_df = pd.DataFrame.from_dict(filepath_dict,orient='index')
+        filepath_df = filepath_df.stack().to_frame().reset_index().drop('level_1', axis=1)
+        filepath_df.columns = ['participant_id', 'filepath']
+    
     return filepath_df
 
 # TO-DO: Implement this function in get_bids_df
