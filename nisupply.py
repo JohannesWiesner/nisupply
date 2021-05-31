@@ -106,7 +106,7 @@ def find_files(src_dir,file_suffix='.nii.gz',file_prefix=None,preceding_dirs=Non
     
     # Raise Error if no files where found
     if len(filepath_list) == 0:
-        raise ValueError('No files that match the given filter(s) where found within this directory {}'.format(src_dir))
+        warn('No files that match the given filter(s) where found within this directory {}'.format(src_dir))
     
     return filepath_list
 
@@ -146,7 +146,6 @@ def get_filepath_df(src_dirs,participant_ids=None,id_pattern='(sub-)([a-zA-Z0-9]
         The function will then map each found file to one of the given participant IDs using a 
         specified regex pattern.
         
-    
     participant_ids: list-like, None
         A list-like object of unique participant IDs or None
         Default: None
@@ -167,14 +166,13 @@ def get_filepath_df(src_dirs,participant_ids=None,id_pattern='(sub-)([a-zA-Z0-9]
 
     '''
     
-    if not participant_ids:
+    if not isinstance(participant_ids,(str,list,pd.Series)):
         
         if isinstance(src_dirs,str):
             
             filepath_list = find_files(src_dir=src_dirs,**kwargs)
             participant_ids = [get_participant_id(filepath,id_pattern) for filepath in filepath_list]
-            filepath_df = pd.DataFrame({'participant_id':participant_ids,
-                                        'filepath':filepath_list})
+            filepath_df = pd.DataFrame({'participant_id':participant_ids,'filepath':filepath_list})
             
         if isinstance(src_dirs,(list,pd.Series)):
             
@@ -184,12 +182,11 @@ def get_filepath_df(src_dirs,participant_ids=None,id_pattern='(sub-)([a-zA-Z0-9]
             
                 filepath_list = find_files(src_dir=src_dir,**kwargs)
                 participant_ids = [get_participant_id(filepath,id_pattern) for filepath in filepath_list]
-                participant_filepath_df = pd.DataFrame({'participant_id':participant_ids,
-                                                        'filepath':filepath_list})
+                participant_filepath_df = pd.DataFrame({'participant_id':participant_ids,'filepath':filepath_list})
                 
                 filepath_df = filepath_df.append(participant_filepath_df)
                 
-    if participant_ids:
+    if isinstance(participant_ids,(str,list,pd.Series)):
         
         if isinstance(participant_ids,str):
             participant_ids = [participant_ids]
@@ -219,7 +216,6 @@ def get_filepath_df(src_dirs,participant_ids=None,id_pattern='(sub-)([a-zA-Z0-9]
             for participant_id,participant_dir in zip(participant_ids,src_dirs):
                 filepath_list = find_files(src_dir=participant_dir,**kwargs)
                 filepath_dict[participant_id] = filepath_list
-    
     
         filepath_df = pd.DataFrame.from_dict(filepath_dict,orient='index')
         filepath_df = filepath_df.stack().to_frame().reset_index().drop('level_1', axis=1)
@@ -270,6 +266,7 @@ def uncompress_files(filepath_list,dst_dir=None):
         # if compressed file already exists do nothing
         if os.path.exists(filepath_uncompressed):
             pass
+        
         # uncompress file and save it without the compression extension
         # in either the same folder or, if specfied in a destination directory
         else:
@@ -281,6 +278,8 @@ def uncompress_files(filepath_list,dst_dir=None):
             
     return 
 
+# FIXME: Allow user to define own regex pattern. The current pattern assumes BIDS-conformity.
+# FIXME: if match is None, the function should return a NaN value and raise a warning. 
 def get_data_type(filepath):
     
     valid_data_types = ['func','dwi','fmap','anat','meg','eeg','ieeg','beh']
@@ -288,7 +287,7 @@ def get_data_type(filepath):
     return([data_type for data_type in valid_data_types if (data_type in filepath.split(os.sep))])[0]
 
 # FIXME: Allow user to define own regex pattern. The current pattern assumes BIDS-conformity.
-# FIXME: if match is None, the function should return a NaN value. 
+# FIXME: if match is None, the function should return a NaN value and raise a warning
 def get_session_label(filepath):
     
     pattern = '(_ses-)(\d+)'
@@ -299,15 +298,14 @@ def get_session_label(filepath):
     else:
         return match.group(2)
     
-# Derive integer timepoints from session labels
-# NOTE: this function assumes that the session labels can be sorted alphanumerically and
-# that there is some sort of 'time logic' encoded in the session labels
 # FIXME: 't' should start from 1 and not from 0 in order to stick to BIDS convention
 # In BIDS, lists start from 1 (e.g. runs also start from 1 and not from 0). 
 def get_timepoint(filepath_df):
+    '''Derive timepoints from session labels. This function assumes that the session 
+    labels can be sorted alphanumerically and that there is some sort of 'time logic' encoded in the session labels'''
     
     # create timepoints for session dates
-    filepath_df['t'] = filepath_df.sort_values(['participant_id', 'session_label']).drop_duplicates(['participant_id', 'session_label']).groupby('participant_id').cumcount()
+    filepath_df['t'] = filepath_df.sort_values(['participant_id','session_label']).drop_duplicates(['participant_id', 'session_label']).groupby('participant_id').cumcount()
     filepath_df['t'] = filepath_df['t'].fillna(method='ffill').astype(int)
     
     return filepath_df
@@ -349,26 +347,32 @@ def get_echo_number(filepath):
 # automatically run all extraction-functions (add_data_type,add_session_label,etc.)
 # If the user only wants to extract certain entities, a input dictionary of
 # booleans should be passed (e.g. {'data_type':True,'echo_number':False})
-def get_bids_df(participant_ids,src_dir,add_data_type=True,add_session_label=True,
+def get_bids_df(src_dirs,participant_ids,add_data_type=True,add_session_label=True,
                 add_timepoint=True,add_run_number=True,add_echo_number=True,**kwargs):
     '''Get filepaths for all participants and add BIDS-information using information
-    from filepaths. The following extraction of entities and their labels 
-    requires the filepaths to follow BIDS-specification.
+    from filepaths. The default extraction of entities and their labels 
+    assumes the filepaths to be in BIDS-specification.
     
     Parameters
     ----------
-    participant_ids: list
-        A list of unique participant IDs.
+    src_dirs: list-like of str, str
+
+        If provided without participant IDS, the function will map each found file
+        to a participant ID using the given regex pattern. 
+
+        If a list of directories is provided together with a list of participant
+        IDs, it is assumed that each directory only contains files for that 
+        particular participant, thus the files are mapped to the respective 
+        participant ID without a regex match.
         
-    src_dir: str, or list of str
-        If provided as a single directory, it is assumed that all files of the
-        participants are in the same directory. It is assumed that each filename
-        contains a BIDS-conform subject id. In consequence, the function will match files and 
-        participant_ids using a regex match.
+        If provided as a single directory together with a list of participant
+        IDs, it is assumed that all files of the participants are in the same directory.
+        The function will then map each found file to one of the given participant IDs using a 
+        specified regex pattern.
         
-        If a list of directories is provided, it is assumed that each directory 
-        only contains files for that particular participant, thus the files
-        are mapped to the respective participant id without a regex match.
+    participant_ids: list-like, None
+        A list-like object of unique participant IDs or None
+        Default: None
         
     add_data_type : bool, optional
         Extract the data type from the filepath. The default is False.
@@ -397,8 +401,8 @@ def get_bids_df(participant_ids,src_dir,add_data_type=True,add_session_label=Tru
     '''
     
     # get dataframe with participant ids and filepaths
-    filepath_df = get_filepath_df(participant_ids=participant_ids,
-                                  src_dir=src_dir,
+    filepath_df = get_filepath_df(src_dirs=src_dirs,
+                                  participant_ids=participant_ids,
                                   **kwargs)
 
     if add_data_type == True:
@@ -420,73 +424,6 @@ def get_bids_df(participant_ids,src_dir,add_data_type=True,add_session_label=Tru
         filepath_df['echo_number'] = filepath_df['filepath'].map(get_echo_number)
     
     return filepath_df
-
-def add_bids_dst_dirs(dst_dir,bids_df):
-    '''Adds a column of BIDS-conform destination directories for each file.
-    The destination directories will be build using an overall input destination 
-    directory for all files and information from BIDS-columns in the input bids_df.
-    
-    Parameters
-    ----------
-    dst_dir: path
-        A path to the destination directory where the BIDS-structure should
-        be created.
-        
-    bids_df: pd.DataFrame
-        A dataframe as returned by :func:`nisupply.get_bids_df`
-        
-    Returns
-    -------
-    bids_df: pd.DataFrame
-        bids_df with an additional column 'bids_dst_dir'.
-
-    '''
-    dst_dir = os.path.normpath(dst_dir)
-    bids_df['bids_dst_dir'] =  bids_df.apply(lambda row: os.path.join(dst_dir,'sub-'+ row['participant_id'],row['session_label'],row['data_type']),axis=1)
-    
-    return bids_df
-
-def create_bids_dst_dirs(bids_df):
-    '''Create BIDS-conform directory structure 
-    
-    Parameters
-    ----------
-    bids_df: pd.DataFrame
-        A data frame that contains a column 'bids_dirs' that contains
-        BIDS-conform directory paths which will be created.
-        
-    Returns
-    -------
-    None.
-
-    '''
-    
-    for bids_dir in bids_df['bids_dst_dir']:
-        if not os.path.isdir(bids_dir):
-            os.makedirs(bids_dir)
-
-# FIXME: DEPRECATED
-def copy_files_to_bids_dst_dirs(filepath_df,bids_df):
-    '''Copy files to BIDS-conform destination directories.
-    
-    Parameters
-    ----------
-    filepath_df: A dataframe containing a column 'participant_id' and a column
-    'filepath' that points to the file which should be copied.
-    
-    bids_df: A dataframe containg a column 'participant_id' and a column
-    'bids_dir' that points to a directory where the file should be copied to.
-    
-    Returns
-    ------
-    
-    
-    '''
-
-    bids_df_src_filepaths = pd.merge(bids_df,filepath_df,on='participant_id')
-    
-    for idx,row in bids_df_src_filepaths.iterrows():
-        shutil.copy2(row['filepath'],row['bids_dst_dir'])
 
 if __name__ == '__main__':
     pass
