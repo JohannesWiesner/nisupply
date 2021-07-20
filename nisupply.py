@@ -110,13 +110,16 @@ def find_files(src_dir,file_suffix='.nii.gz',file_prefix=None,preceding_dirs=Non
     
     return filepath_list
 
-def get_participant_id(filepath,pattern='(sub-)([a-zA-Z0-9]+)'):
+def get_participant_id(filepath,pattern='(sub-)([a-zA-Z0-9]+)',regex_group=2):
     '''Extract a participant ID from a filepath using a regex-match'''
     
     match = re.search(pattern,filepath)
     
     if match:
-        return match.group()
+        if regex_group:
+            return match.group(regex_group)
+        else:
+            return match.group()
     else:
         warn(f"Could not extract participant ID from {filepath}")
         return np.nan
@@ -125,7 +128,7 @@ def get_participant_id(filepath,pattern='(sub-)([a-zA-Z0-9]+)'):
 # each participant id is mapped on one and only one source directory (aka.
 # both arrays must be the same length). 
 # FIXME: Both particpant_ids and list-like src_dir should be checked for NaNs. 
-def get_filepath_df(src_dirs,participant_ids=None,id_pattern='(sub-)([a-zA-Z0-9]+)',**kwargs):
+def get_filepath_df(src_dirs,participant_ids=None,id_pattern='(sub-)([a-zA-Z0-9]+)',regex_group=2,**kwargs):
     '''Find files for multiple participants in one or multiple source directories. 
     
     Parameters
@@ -154,6 +157,10 @@ def get_filepath_df(src_dirs,participant_ids=None,id_pattern='(sub-)([a-zA-Z0-9]
         The regex-pattern that is used to extract the participant ID from
         each filepath. By default, this pattern uses a BIDS-compliant regex-pattern. 
         Default: '(sub-)([a-zA-Z0-9]+)'
+    
+    regex_group: int, or None
+        If int, match the int-th group of the regex match. If none, just return
+        match.group(). Default: 2
         
     kwargs: key, value mappings
         Other keyword arguments are passed to :func:`nisupply.find_files`
@@ -347,8 +354,9 @@ def get_echo_number(filepath):
 # automatically run all extraction-functions (add_data_type,add_session_label,etc.)
 # If the user only wants to extract certain entities, a input dictionary of
 # booleans should be passed (e.g. {'data_type':True,'echo_number':False})
-def get_bids_df(src_dirs,participant_ids,add_data_type=True,add_session_label=True,
-                add_timepoint=True,add_run_number=True,add_echo_number=True,**kwargs):
+def get_bids_df(src_dirs,participant_ids=None,id_pattern='(sub-)([a-zA-Z0-9]+)',regex_group=2,
+                add_data_type=True,add_session_label=True,add_timepoint=True,add_run_number=True,
+                add_echo_number=True,**kwargs):
     '''Get filepaths for all participants and add BIDS-information using information
     from filepaths. The default extraction of entities and their labels 
     assumes the filepaths to be in BIDS-specification.
@@ -369,10 +377,19 @@ def get_bids_df(src_dirs,participant_ids,add_data_type=True,add_session_label=Tr
         IDs, it is assumed that all files of the participants are in the same directory.
         The function will then map each found file to one of the given participant IDs using a 
         specified regex pattern.
-        
+    
     participant_ids: list-like, None
         A list-like object of unique participant IDs or None
         Default: None
+        
+    id_pattern: regex-pattern 
+        The regex-pattern that is used to extract the participant ID from
+        each filepath. By default, this pattern uses a BIDS-compliant regex-pattern. 
+        Default: '(sub-)([a-zA-Z0-9]+)'
+        
+    regex_group: int, or None
+        If int, match the int-th group of the regex match. If none, just return
+        match.group(). Default: 2
         
     add_data_type : bool, optional
         Extract the data type from the filepath. The default is False.
@@ -403,6 +420,8 @@ def get_bids_df(src_dirs,participant_ids,add_data_type=True,add_session_label=Tr
     # get dataframe with participant ids and filepaths
     filepath_df = get_filepath_df(src_dirs=src_dirs,
                                   participant_ids=participant_ids,
+                                  id_pattern=id_pattern,
+                                  regex_group=regex_group,
                                   **kwargs)
 
     if add_data_type == True:
