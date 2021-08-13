@@ -178,7 +178,7 @@ def get_filepath_df(src_dirs,participant_ids=None,id_pattern='(sub-)([a-zA-Z0-9]
         if isinstance(src_dirs,str):
             
             filepath_list = find_files(src_dir=src_dirs,**kwargs)
-            participant_ids = [get_participant_id(filepath,id_pattern) for filepath in filepath_list]
+            participant_ids = [get_participant_id(filepath,id_pattern,regex_group) for filepath in filepath_list]
             filepath_df = pd.DataFrame({'participant_id':participant_ids,'filepath':filepath_list})
             
         if isinstance(src_dirs,(list,pd.Series)):
@@ -188,7 +188,7 @@ def get_filepath_df(src_dirs,participant_ids=None,id_pattern='(sub-)([a-zA-Z0-9]
             for src_dir in src_dirs:
             
                 filepath_list = find_files(src_dir=src_dir,**kwargs)
-                participant_ids = [get_participant_id(filepath,id_pattern) for filepath in filepath_list]
+                participant_ids = [get_participant_id(filepath,id_pattern,regex_group) for filepath in filepath_list]
                 participant_filepath_df = pd.DataFrame({'participant_id':participant_ids,'filepath':filepath_list})
                 
                 filepath_df = filepath_df.append(participant_filepath_df)
@@ -205,7 +205,7 @@ def get_filepath_df(src_dirs,participant_ids=None,id_pattern='(sub-)([a-zA-Z0-9]
             
             for filepath in filepath_list:
                 
-                participant_id = get_participant_id(filepath,id_pattern)
+                participant_id = get_participant_id(filepath,id_pattern,regex_group)
                                 
                 try:
                     filepath_dict[participant_id].append(filepath)
