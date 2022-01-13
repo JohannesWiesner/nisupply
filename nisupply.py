@@ -26,8 +26,7 @@ from warnings import warn
 # regex that is also used in CAT12 to find .xml files: ^cat_.*\.xml$
 # Using regex instead (or in combination) with/of file_prefix + file_extension 
 # might be more 'fail-safe' to find exactly the files, that the user is looking for
-def find_files(src_dir,file_suffix='.nii.gz',file_prefix=None,preceding_dirs=None,
-                case_sensitive=True):
+def find_files(src_dir,file_suffix='.nii.gz',file_prefix=None,preceding_dirs=None,exclude_dirs=None,case_sensitive=True):
     '''Find files in a single source directory. Files are found based on a 
     specified file suffix. Optionally, the function can filter for files
     using an optional file prefix and a list of preceding directories that must be 
@@ -37,20 +36,20 @@ def find_files(src_dir,file_suffix='.nii.gz',file_prefix=None,preceding_dirs=Non
     ----------
     src_dir: path
         A directory that should be searched for files.
-    
     file_suffix: str, tuple of strs
         One or multiple strings on which the end of the filepath should match.
         Default: '.nii.gz'
-    
     file_prefix: str, tuple of strs
         One or multiple strings on which the beginning of the filepath should match.
         Default: None
-    
     preceding_dirs: str, list of strs or None
         Single name of a directory or list of directories that must be 
         components of each filepath
         Default: None
-    
+    exclude_dirs : str, list of str, None
+        Name of single directory of list of directory names that should be ignored when searching for files.
+        All of the specified directories and their children directories will be
+        ignored (Default: None)
     case_sensitive: Boolean
         If True, matching is done by the literal input of file suffixes and
         prefixes and files. If False, both the inputs and the files are converted
@@ -68,17 +67,19 @@ def find_files(src_dir,file_suffix='.nii.gz',file_prefix=None,preceding_dirs=Non
     src_dir = os.path.normpath(src_dir)
     
     filepath_list = []
-    
-    if not case_sensitive:
-        file_suffix = file_suffix.lower()
-        file_prefix = file_prefix.lower()
-        
+            
     # search for files that match the given file extension.
     # if prefix is defined, only append files that match the given prefix
     for (paths, dirs, files) in os.walk(src_dir):
+        
+        if exclude_dirs:
+            dirs[:] = [d for d in dirs if d not in exclude_dirs]
+        
         for file in files:
+            
             if not case_sensitive:
                 file = file.lower()
+            
             if file.endswith(file_suffix):
                 if file_prefix:
                     if file.startswith(file_prefix):
