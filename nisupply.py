@@ -526,7 +526,7 @@ def copy_files(df,src,tgt):
     
     '''
     
-    df.apply(lambda row: os.makedirs(os.path.dirname(row[tgt])),axis=1)
+    df.apply(lambda row: os.makedirs(os.path.dirname(row[tgt]),exist_ok=True),axis=1)
     df.apply(lambda row: shutil.copy2(row[src],row[tgt]),axis=1)
 
 if __name__ == '__main__':
