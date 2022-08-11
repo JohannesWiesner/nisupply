@@ -445,6 +445,7 @@ def get_bids_df(src_dirs,participant_ids=None,id_pattern='(sub-)([a-zA-Z0-9]+)',
     
     return filepath_df
 
+<<<<<<< HEAD
 def extract_entities(recipe):
     '''Extract characters inside curly braces in a tuple of strs. Strings 
     that do not contain curly braces are ignored
@@ -528,6 +529,67 @@ def copy_files(df,src,tgt):
     
     df.apply(lambda row: os.makedirs(os.path.dirname(row[tgt]),exist_ok=True),axis=1)
     df.apply(lambda row: shutil.copy2(row[src],row[tgt]),axis=1)
+
+###############################################################################
+## Datalad ####################################################################
+###############################################################################
+
+def replace_datalad_symlinks(dataset_path):
+    '''Convert the symbolic links in a datalad dataset with the actual files
+    themselves. After that, get rid of all the datalad folders (.git, .datalad,
+    .gitattrbiutes), leaving only the files themselves. Use case: Windows cannot 
+    read the symbolic links from Linux. This function should be used carefully 
+    since it (purposely) wbreaks the logic from datalad (which saves the actual 
+    files in the annex folder whereas the data structure itself only contains
+    directories with symbolic links pointing to the annex)
+    
+    Parameters
+    ----------
+    dataset_path : str
+        Path to a datalad dataset.
+
+    Returns
+    -------
+    None.
+
+    '''
+
+    for dirpath, dirnames, filenames in os.walk(dataset_path):
+        
+        # ignore datalad directories when searching for symbolic links
+        dirnames[:] = [d for d in dirnames if d not in ['.datalad','.git']]
+        
+        for filename in filenames:
+            
+            # get full filepath
+            filepath = os.path.join(dirpath,filename)
+    
+            # check if file is a symbolic link 
+            if os.path.islink(filepath):
+                # read link path 
+                link_tgt = os.readlink(filepath)
+                # delete symbolic link
+                os.remove(filepath)
+                # copy link target to location of (now deleted) symbolic link
+                shutil.move(link_tgt,filepath)
+    
+    # delete datalad stuff
+    shutil.rmtree(os.path.join(dataset_path,'.datalad'))
+    os.remove(os.path.join(dataset_path,'.gitattributes'))
+    
+    # removing the .git directory using shutil.rmtree raises Permission 13 error, 
+    # so we use this workaround:
+    # https://stackoverflow.com/questions/58878089/how-to-remove-git-repository-in-python-on-windows
+    # See also: https://stackoverflow.com/questions/1889597/deleting-read-only-directory-in-python
+    for root, dirs, files in os.walk(os.path.join(dataset_path,'.git')):  
+        for d in dirs:
+            os.chmod(os.path.join(root, d), stat.S_IRWXU)
+        for file in files:
+            os.chmod(os.path.join(root, file), stat.S_IRWXU)
+            
+    shutil.rmtree(os.path.join(dataset_path,'.git'))
+
+
 
 if __name__ == '__main__':
     pass
