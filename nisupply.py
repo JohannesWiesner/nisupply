@@ -445,7 +445,6 @@ def get_bids_df(src_dirs,participant_ids=None,id_pattern='(sub-)([a-zA-Z0-9]+)',
     
     return filepath_df
 
-<<<<<<< HEAD
 def extract_entities(recipe):
     '''Extract characters inside curly braces in a tuple of strs. Strings 
     that do not contain curly braces are ignored
@@ -588,8 +587,6 @@ def replace_datalad_symlinks(dataset_path):
             os.chmod(os.path.join(root, file), stat.S_IRWXU)
             
     shutil.rmtree(os.path.join(dataset_path,'.git'))
-
-
 
 if __name__ == '__main__':
     pass
