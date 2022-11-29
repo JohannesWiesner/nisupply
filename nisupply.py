@@ -455,7 +455,6 @@ def extract_entities(recipe):
     entities = [e for entity in entities for e in entity]
     return entities
 
-
 def get_bids_structure(df,bids_recipe_dir,bids_recipe_file,dst_dir):
     '''Adds columns for BIDS-conform destination directories, filenames and 
     destination paths to an input dataframe. The columns are created using an 
@@ -510,7 +509,9 @@ def get_bids_structure(df,bids_recipe_dir,bids_recipe_file,dst_dir):
     return df
 
 def copy_files(df,src,tgt):
-    '''Copy files to BIDS-conform destination directories.
+    '''Copy files to destination directories using a source and a target
+    column in a pandas Dataframe. Nested target directory structures are
+    created along the way.
     
     Parameters
     ----------
