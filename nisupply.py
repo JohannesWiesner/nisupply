@@ -15,6 +15,7 @@ import shutil
 import re
 import pathlib
 from warnings import warn
+import stat
 
 # TO-DO: File extensions should be optional = just return all files you can find
 # TO-DO: Searching for a specific order of directories should be included 
