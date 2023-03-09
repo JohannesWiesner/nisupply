@@ -65,28 +65,6 @@ def uncompress_files(filepath_list,dst_dir=None):
         filepath_list_uncompressed.append(filepath_uncompressed)
 
     return
-
-def copy_files(df,src,tgt):
-    '''Copy files to destination directories using a source and a target
-    column in a pandas Dataframe. Nested target directory structures are
-    created along the way.
-
-    Parameters
-    ----------
-    df: pd.DataFrame
-        A dataframe that holds a column with the source filepaths and one
-        column specifying the destination filepaths.
-
-    src: str
-        Denotes the column that denotes the source filepath
-
-    tgt: str
-        Denotes the column that enotes the target filepath
-
-    '''
-
-    df.apply(lambda row: os.makedirs(os.path.dirname(row[tgt]),exist_ok=True),axis=1)
-    df.apply(lambda row: shutil.copy2(row[src],row[tgt]),axis=1)
     
 def replace_datalad_symlinks(dataset_path):
     '''Convert the symbolic links in a datalad dataset with the actual files
