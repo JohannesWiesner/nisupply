@@ -7,10 +7,11 @@ Input/Output operations (Finding files, copy them to other places, etc.)
 """
 
 import os
-from warnings import warn
 import re
+from warnings import warn
 import numpy as np
 import pandas as pd
+import shutil
 
 def find_files(src_dir,file_suffix=None,file_prefix=None,exclude_dirs=None,must_contain=None,case_sensitive=True):
     '''Find files in a single source directory. Files are found based on a
@@ -196,3 +197,35 @@ def get_filepath_df(src_dir,subject_ids=None,extract_id=False,id_pattern='(sub-)
         files = [file for sublist in files for file in sublist]
         df = pd.DataFrame({'filepath':files})
         return df
+    
+def get_dst_dir(df,src_dir,dst_dir):
+    '''Creates a new column 'dst' in the dataframe where the source directory
+    gets replaced with the destination directory'''
+    
+    src_dir = os.path.normpath(src_dir)
+    dst_dir = os.path.normpath(dst_dir)
+    df['dst'] = df['filepath'].apply(lambda row: os.path.join(dst_dir,row.replace(src_dir,'').lstrip(os.sep)))
+    
+    return df
+    
+def copy_files(df,src,tgt):
+    '''Copy files to destination directories using a source and a target
+    column in a pandas Dataframe. Nested target directory structures are
+    created along the way. Existing files will be overwritten
+
+    Parameters
+    ----------
+    df: pd.DataFrame
+        A dataframe that holds a column with the source filepaths and one
+        column specifying the destination filepaths.
+
+    src: str
+        Denotes the column that denotes the source filepath
+
+    tgt: str
+        Denotes the column that enotes the target filepath
+
+    '''
+
+    df.apply(lambda row: os.makedirs(os.path.dirname(row[tgt]),exist_ok=True),axis=1)
+    df.apply(lambda row: shutil.copy2(row[src],row[tgt]),axis=1)
