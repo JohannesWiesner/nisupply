@@ -57,6 +57,12 @@ def add_bids_info(df,regex_dict=None):
         df[entity] = df['filepath'].apply(regex_extract,args=(regex_info[0],regex_info[1]))
     return df
 
+def get_file_extension(filepath):
+    '''Returns the file extension(s) of a given filepath. 
+    https://stackoverflow.com/a/35188296/8792159'''
+    file_suffix = ''.join(pathlib.Path(filepath).suffixes)
+    return file_suffix
+
 def extract_entities(recipe):
     '''Extract characters inside curly braces in a tuple of strs. Strings
     that do not contain curly braces are ignored
