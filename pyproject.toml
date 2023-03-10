@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nisupply"
+version= "2023.03.10"
+authors = [
+    {name = "Johannes Wiesner", email = "joh.wiesner@gmail.com"},
+]
+description = "A python module for dealing with unstructured or semi-structured neuroimaging datasets which do not conform to the BIDS data structure"
+readme = "README.md"
+keywords = ["files","utility","neuroscience","neuroimaging","file-management"]
+license = {text = "MIT"}
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "numpy",
+    "pandas"
+]
+
+[project.urls]
+"Homepage" = "https://github.com/JohannesWiesner/nisupply"
+
+[tool.setuptools]
+packages = ["nisupply"]

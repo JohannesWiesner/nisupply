@@ -1,6 +1,9 @@
 # nisupply
 A python module for dealing with unstructured or semi-structured neuroimaging datasets which do not conform to the [Brain Imaging Data Structure (BIDS)](https://bids.neuroimaging.io/).
 
+## Installation
+Install via pip with: `pip install nisupply`
+
 ## Aims
 Though more and more datasets become available in the standardized BIDS-format, researchers will still often find themelves in situations, were:
 1. The dataset is not BIDS-formatted at all (this is often the case with old 'in-house' datasets that were aquired during a time were BIDS didn't exist yet).
