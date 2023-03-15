@@ -17,9 +17,40 @@ Though more and more datasets become available in the standardized BIDS-format, 
 
  ## Docs
 The nisupply package provides three main modules:
-1. `nisupply.io` for input-output-operations (finding files, renaming them, copying them over to a different directory). The main function within this module is the `nisupply.io.get_filepath_df` function.
-2. `nisupply.bids` (helper functions to create a BIDS-like data structures. Note, that without having the original DICOM files one will never be able to create 100% valid BIDS-datasets with this module)
-3. `nisupply.utils` (unarchiving files which is needed for neuroimaging software like SPM and other functions that do not fit to the first two modules)
+
+  `nisupply.io`  for input-output-operations (finding files, renaming them, copying them over to a different directory). The main function within this module is the `nisupply.io.get_filepath_df` function. Consider this semistructured dataset as an example:
+
+```
+|-example_dataset
+| |-fmri_nback_subject_3_session_2.nii.gz
+| |-subject_1
+| | |-session_2
+| | | |-fmri_nback.nii.gz
+| | |-fmri_gambling.nii.gz
+| | |-fmri_nback.nii.gz
+| |-subject_4.txt
+| |-subject_2_fmri_nback.nii.gz
+```
+Then use `nisupply.io.get_filepath_df` with the following parameters:
+```
+df = get_filepath_df(src_dir=src_dir,
+                     extract_id=True,
+                     id_pattern='subject_\d+',
+                     re_group=0,
+                     id_column_name='participant',
+                     file_suffix='.nii.gz',
+                     file_prefix='fmri_nback',
+                     must_contain='session_2')
+```
+and you would end up with a pandas data frame that looks like this:
+
+```
+                                                     filepath participant
+0  docs/example_dataset/fmri_nback_subject_3_session_2.nii.gz   subject_3
+1  docs/example_dataset/subject_1/session_2/fmri_nback.nii.gz   subject_1
+```
+
+`nisupply.bids` contains helper functions to create a BIDS-like data structures. Note, that without having the original DICOM files one will never be able to create 100% valid BIDS-datasets with this module. `nisupply.utils` does other jobs like unarchiving files which is needed for neuroimaging software like SPM and other functions that do not fit to the first two modules.
 
 ## Note
 The nisupply module does **not** provide any functions to convert DICOM files to NIFTI files. If you are looking for tools to do that, check out tools like [heudiconv](https://heudiconv.readthedocs.io/en/latest/) or [bidscoin](https://bidscoin.readthedocs.io/en/latest/) that can do that for you.
