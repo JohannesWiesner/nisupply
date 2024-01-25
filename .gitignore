@@ -22,3 +22,8 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+
+# folders
+# ignore everything inside testing folder except for test_nisupply
+testing/*
+!testing/test_nisupply.py

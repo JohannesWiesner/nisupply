@@ -13,7 +13,9 @@ import numpy as np
 import pandas as pd
 import shutil
 
-def find_files(src_dir,file_suffix=None,file_prefix=None,exclude_dirs=None,must_contain=None,case_sensitive=True):
+def find_files(src_dir,file_suffix=None,file_prefix=None,
+               exclude_dirs=None,must_contain_all=None,must_contain_any=None,
+               case_sensitive=True):
     '''Find files in a single source directory. Files are found based on a
     specified file suffix. Optionally, the function can filter for files
     using an optional file prefix and a list of preceding directories that must be
@@ -31,11 +33,13 @@ def find_files(src_dir,file_suffix=None,file_prefix=None,exclude_dirs=None,must_
         Default: None
     exclude_dirs : str, list of str, None
         Name of single directory or list of directory names that should be ignored when searching for files.
-        All of the specified directories and their children directories will be ignored.
+        All of the specified directories and their child directories will be ignored.
         Default: None
-    must_contain: list of str
-        Single name of a directory or list of directories that must be
-        components of each filepath
+    must_contain_all: str, list of str
+        Single string or list of strings that must all appear in the filepath
+        Default: None
+    must_contain_any: str, list of str
+        Single string or list of strings where any of those must appear in the filepath
         Default: None
     case_sensitive: Boolean
         If True, matching is done by the literal input of file suffixes and
@@ -58,8 +62,11 @@ def find_files(src_dir,file_suffix=None,file_prefix=None,exclude_dirs=None,must_
         raise OSError(f"Directory {src_dir} does not exist")
 
     # convert to appropriate data types
-    if isinstance(must_contain,str):
-        must_contain = [must_contain]
+    if isinstance(must_contain_all,str):
+        must_contain_all = [must_contain_all]
+    
+    if isinstance(must_contain_any,str):
+        must_contain_any = [must_contain_any]
 
     filepath_list = []
 
@@ -83,7 +90,10 @@ def find_files(src_dir,file_suffix=None,file_prefix=None,exclude_dirs=None,must_
             if file_prefix and not file.startswith(file_prefix):
                 continue
 
-            if must_contain and not all(element in filepath for element in must_contain):
+            if must_contain_all and not all(element in filepath for element in must_contain_all):
+                continue
+            
+            if must_contain_any and not any(element in filepath for element in must_contain_any):
                 continue
 
             filepath_list.append(filepath)
