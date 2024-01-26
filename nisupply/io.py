@@ -145,16 +145,40 @@ def get_filepath_df(src_dir,regex_dict=None,**kwargs):
 
     src_dir: list-like of str, str
         One or multiple source directories that should be searched for files
-    
+        
     regex_dict: dict 
         A dicionary where the keys denote names of new columns that should be
         added to the dataframe and the values denote regex-patterns. If 
         a regex-pattern contains a capture group, the group will be returned,
         otherwise the whole match. If no match could be found np.nan will be
         returned.
-
-    kwargs: key, value mappings
-        Other keyword arguments are passed to :func:`nisupply.find_files`
+        Default: None
+        
+    file_suffix: str, tuple of strs
+        One or multiple strings on which the end of the filepath should match.
+        Default: None
+        
+    file_prefix: str, tuple of strs
+        One or multiple strings on which the beginning of the filepath should match.
+        Default: None
+        
+    exclude_dirs : str, list of str, None
+        Name of single directory or list of directory names that should be ignored when searching for files.
+        All of the specified directories and their child directories will be ignored.
+        Default: None
+        
+    must_contain_all: str, list of str
+        Single string or list of strings that must all appear in the filepath
+        Default: None
+        
+    must_contain_any: str, list of str
+        Single string or list of strings where any of those must appear in the filepath
+        Default: None
+        
+    case_sensitive: Boolean
+        If False, all files will be converted to lower-case letters first before
+        applying search conditions.
+        Default: True
 
     Returns
     -------
