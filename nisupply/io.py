@@ -104,8 +104,10 @@ def find_files(src_dir,file_suffix=None,file_prefix=None,
 
     return filepath_list
 
-def regex_extract(filepath,pattern,re_group=0):
-    ''' Extract a sub-string from a filepath using a regex-match.
+def _regex_extract(filepath,pattern):
+    ''' Extract a sub-string from a filepath using a regex-match. If the regex
+    pattern contains a capture group the function will return the group and
+    not the whole match. If there's no match the function will return np.nan
 
     Parameters
     ----------
@@ -123,51 +125,33 @@ def regex_extract(filepath,pattern,re_group=0):
     regex-match, np.nan
     '''
 
-    match = re.search(pattern,filepath)
+    re_match = re.search(pattern,filepath)
 
-    if match:
-        return match.group(re_group)
+    if re_match:
+        # if regex contains a capture group return that group (not the whole match)
+        if re_match.groups():
+            return re_match.group(1)
+        # otherwise return whole match
+        else:
+            return re_match.group(0)
     else:
         return np.nan
 
-# FIXME: If scr_dir is list-like, perform sanity check and ensure that
-# each participant id is mapped on one and only one source directory (aka.
-# both arrays must be the same length), because right now both can have
-# different lengths, but no error is thrown meaning that it can happen
-# that files or ids simply won't appear
-# FIXME: Both particpant_ids and list-like src_dir should be checked for NaNs.
-def get_filepath_df(src_dir,subject_ids=None,extract_id=False,id_pattern='(sub-)([a-zA-Z0-9]+)',re_group=2,id_column_name='subject_id',**kwargs):
-    '''Find files for multiple participants in one or multiple source directories.
+def get_filepath_df(src_dir,regex_dict=None,**kwargs):
+    '''Find files in one ore multiple directories. 
 
     Parameters
     ----------
 
     src_dir: list-like of str, str
         One or multiple source directories that should be searched for files
-
-    subject_ids: list-like or None
-        A list-like object of subject ids. If src_dir is a list-like object
-        and subject_ids is provided, each subject id is mapped on one src dir.
-
-        Default: None
-
-    extract_id: boolean, optional
-        If True, extract subject id using id_pattern and re_group from each
-        found filepath.
-        Default: False
-
-    id_pattern: regex-pattern
-        The regex-pattern that is used to extract the participant ID from
-        each filepath. By default, this pattern uses a BIDS-compliant regex-pattern.
-        Default: '(sub-)([a-zA-Z0-9]+)'
-
-    re_group: int, or None
-        If int, match the int-th group of the regex match. If None, just return
-        match.group(). Default: 2
-
-    id_column_name: str
-        Optional different name for the column that contains the subject ids.
-        Default: 'subject_id'
+    
+    regex_dict: dict 
+        A dicionary where the keys denote names of new columns that should be
+        added to the dataframe and the values denote regex-patterns. If 
+        a regex-pattern contains a capture group, the group will be returned,
+        otherwise the whole match. If no match could be found np.nan will be
+        returned.
 
     kwargs: key, value mappings
         Other keyword arguments are passed to :func:`nisupply.find_files`
@@ -175,38 +159,32 @@ def get_filepath_df(src_dir,subject_ids=None,extract_id=False,id_pattern='(sub-)
     Returns
     -------
     filepath_df: pd.DataFrame
-        A data frame with at least one column that holds the filepaths to found
-        files and and optional second column with subject ids
+        A data frame with a 'filepath' column and optionally other columns 
+        defined using regular expressions.
     '''
 
 
     if isinstance(src_dir,str):
-
+        
         files = find_files(src_dir,**kwargs)
         df = pd.DataFrame({'filepath':files})
-
-        if extract_id == True:
-            df[id_column_name] = df['filepath'].apply(regex_extract,pattern=id_pattern,re_group=re_group)
-
-        return df
-
-    else:
-        files = [find_files(src_dir,**kwargs) for src_dir in src_dir]
-
-        if extract_id == True:
-            files = [file for sublist in files for file in sublist]
+    
+    elif isinstance(src_dir,list):
+        
+        dfs = []
+        
+        for src in src_dir:
+            files = find_files(src,**kwargs)
             df = pd.DataFrame({'filepath':files})
-            df[id_column_name] = df['filepath'].apply(regex_extract,pattern=id_pattern,re_group=re_group)
-            return df
-
-        if subject_ids:
-            files = dict(zip(subject_ids,files))
-            df = pd.DataFrame([(s,f) for s,sublist in files.items() for f in sublist],columns=[id_column_name,'filepath'])
-            return df
-
-        files = [file for sublist in files for file in sublist]
-        df = pd.DataFrame({'filepath':files})
-        return df
+            dfs.append(df)
+            
+        df = pd.concat(dfs,ignore_index=True)
+    
+    if regex_dict:
+        for column,pattern in regex_dict.items():
+            df[column] = df['filepath'].apply(lambda filepath: _regex_extract(filepath,pattern))
+        
+    return df
     
 def get_dst_dir(df,src_dir,dst_dir):
     '''Creates a new column 'dst' in the dataframe where the source directory

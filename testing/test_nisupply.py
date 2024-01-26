@@ -8,7 +8,6 @@ if everything works
 
 import os
 import shutil
-
 import pathlib
 import sys
 
@@ -16,6 +15,8 @@ import sys
 # python session to prioritize the local package over the pip-installed one
 local_path_nisupply = str(pathlib.Path(__file__).parent.parent)
 sys.path.insert(0,local_path_nisupply)
+
+from nisupply.io import get_filepath_df
 
 ###############################################################################
 ## Create an unordered dataset ################################################
@@ -49,14 +50,10 @@ for file in files:
 # Run nisupply ##############################################
 ##############################################################################
 
-from nisupply.io import get_filepath_df
-
 df = get_filepath_df(src_dir='./src',
-                      extract_id=True,
-                      id_pattern='subject_\d+',
-                      re_group=0,
-                      id_column_name='participant',
-                      file_suffix='.nii.gz',
-                      file_prefix='fmri_nback',
-                      must_contain_all='session_2',
-                      must_contain_any='subject_3')
+                     regex_dict={'subject_id': 'subject_\d',
+                                 'task': 'fmri_(nback|gambling)'},
+                     file_suffix='.nii.gz',
+                     file_prefix='fmri_nback',
+                     must_contain_all='session_2',
+                     must_contain_any='subject_3')
