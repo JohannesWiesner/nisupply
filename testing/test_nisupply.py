@@ -17,6 +17,9 @@ local_path_nisupply = str(pathlib.Path(__file__).parent.parent)
 sys.path.insert(0,local_path_nisupply)
 
 from nisupply.io import get_filepath_df
+from nisupply.structure import get_file_extension
+from nisupply.structure import get_new_filepath
+from nisupply.io import copy_files
 
 ###############################################################################
 ## Create an unordered dataset ################################################
@@ -51,9 +54,19 @@ for file in files:
 ##############################################################################
 
 df = get_filepath_df(src_dir='./src',
-                     regex_dict={'subject_id': 'subject_\d',
+                     regex_dict={'subject_id':'subject_(\d)',
                                  'task': 'fmri_(nback|gambling)'},
                      file_suffix='.nii.gz',
-                     file_prefix='fmri_nback',
-                     must_contain_all='session_2',
-                     must_contain_any='subject_3')
+                     file_prefix='fmri_nback')
+
+# get the file extensioin as new column
+df = get_file_extension(df)
+
+# add the overall destination directory
+df['dst'] = './dst'
+
+# create new filepaths
+df = get_new_filepath(df,template="{dst}/sub-{subject_id}/sub-{subject_id}_task-{task}{file_extension}")
+
+# copy files over to new destination
+copy_files(df,src_col='filepath',tgt_col='filepath_new')

@@ -209,17 +209,7 @@ def get_filepath_df(src_dir,regex_dict=None,**kwargs):
             df[column] = df['filepath'].apply(lambda filepath: _regex_extract(filepath,pattern))
         
     return df
-    
-def get_dst_dir(df,src_dir,dst_dir):
-    '''Creates a new column 'dst' in the dataframe where the source directory
-    in each filepath gets replaced with the destination directory'''
-    
-    src_dir = os.path.normpath(src_dir)
-    dst_dir = os.path.normpath(dst_dir)
-    df['dst'] = df['filepath'].apply(lambda row: os.path.join(dst_dir,row.replace(src_dir,'').lstrip(os.sep)))
-    
-    return df
-    
+        
 def copy_files(df,src_col,tgt_col):
     '''Copy files to destination directories using a source and a target
     column in a pandas Dataframe. Non existing directories are

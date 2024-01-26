@@ -10,71 +10,69 @@ import re
 import os
 import pathlib
 
-def get_file_extension(filepath):
-    '''Returns the file extension(s) of a given filepath. 
-    https://stackoverflow.com/a/35188296/8792159'''
-    file_suffix = ''.join(pathlib.Path(filepath).suffixes)
-    return file_suffix
+def get_file_extension(df):
+    '''Returns the file extension(s) of a given filepath. This function
+    will return all extensions of each filepath (not only the last one)
+    
+    Parameters
+    ----------
+    df : pd.DataFrame
+        A pandas dataframe that must have a column named 'filepath'.
+    
+    Returns
+    -------
+    df: pd.DataFrame
+        Returns the dataframe with a new column 'file_extension' that 
+        holds the file extension(s) of each filepath.
+    
+    '''
+    
+    df['file_extension'] = df['filepath'].apply(lambda filepath: ''.join(pathlib.Path(filepath).suffixes))
+    
+    return df
 
-def extract_entities(recipe):
+def get_dst_dir(df,src_dir,dst_dir):
+    '''Creates a new column 'dst' in the dataframe where the source directory
+    in each filepath is replaced with the destination directory'''
+    
+    src_dir = os.path.normpath(src_dir)
+    dst_dir = os.path.normpath(dst_dir)
+    df['dst'] = df['filepath'].apply(lambda row: os.path.join(dst_dir,row.replace(src_dir,'').lstrip(os.sep)))
+    
+    return df
+
+def extract_entities(template):
     '''Extract characters inside curly braces in a tuple of strs. Strings
     that do not contain curly braces are ignored
     E.g. ["sub-{subject_id}","session-{session}"] becomes ['subject_id','session']
     '''
 
-    entities = [re.findall("\{(.*?)\}",entity) for entity in recipe]
+    entities = [re.findall("\{(.*?)\}",entity) for entity in template]
     entities = [e for entity in entities for e in entity]
     return entities
 
-def get_bids_structure(df,bids_recipe_dir,bids_recipe_file,dst_dir):
-    '''Adds columns for BIDS-conform destination directories, filenames and
-    destination paths to an input dataframe. The columns are created using an
-    overall input destination directory for all files and information from BIDS-columns in the input bids_df.
-
+def get_new_filepath(df,template):
+    '''Helps you to create new directories and new filenames using string formatting.
+    
     Parameters
     ----------
     df : pd.DataFrame
-        A pandas data frame that has columns that which contain information
-        about files. Currently the dataframe MUST contain a column that is
-        named 'file_suffix' and contains the file-extension (without the period)
-        of each row
-    bids_recipe_dir : tuple of str
-        A tuple of strs that is used to create a template for a destination directory
-        Each string may contain placeholders in curly strings that match to a column
-        name in the data frame. bids_recipe_dir is used to create a template
-        for the destination directory
-    bids_recipe_file : tuple of str
-        A tuple of strs that is used to create a template for a destination filename
-        Each string may contain placeholders in curly strings that match to a column
-        name in the data frame. bids_recipe_file is used to create a template
-        for the destination filename
-    dst_dir: path
-        A path to the destination directory where the BIDS-structure should
-        be created.
-
+        A pandas data frame.
+    template : str
+        A string that serves as template for the new filepath. The string may 
+        contain placeholders in curly brackets that match to a column name in the data frame. 
+        
     Returns
     -------
     pd.DataFrame
-        The original dataframe with three added columns:
-            bids_dir (describes the destination directory)
-            bids_file (desribes the destination filename)
-            bids_dst (describes the whole path)
+        The original dataframe with an additional columm 'filepath_new' that
+        holds the new filepath for each row
 
     '''
 
-    # extract entities from recipes
-    entities_dir = extract_entities(bids_recipe_dir)
-    entities_file = extract_entities(bids_recipe_file)
-
-    # create BIDS templates for directories and files
-    bids_template_dir = '/'.join(bids_recipe_dir)
-    bids_template_file = '_'.join(bids_recipe_file)
-
-    def from_template(row,template):
+    def _from_template(row,template):
         return template.format(**row.to_dict())
 
-    df['bids_dir'] = df[entities_dir].apply(lambda row: from_template(row,bids_template_dir),axis=1)
-    df['bids_file'] = df[entities_file].apply(lambda row: from_template(row,bids_template_file),axis=1)
-    df['bids_dst'] = df.apply(lambda row: os.path.join(dst_dir,row['bids_dir'],row['bids_file']) + '.' + row['file_suffix'],axis=1)
+    df['filepath_new'] = df.apply(lambda row: _from_template(row,template),axis=1)
 
     return df
