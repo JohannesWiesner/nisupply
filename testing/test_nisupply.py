@@ -59,13 +59,10 @@ df = get_filepath_df(src_dir='./src',
                      file_suffix='.nii.gz',
                      file_prefix='fmri_nback')
 
-# get the file extensioin as new column
-df = get_file_extension(df)
-
-# add the overall destination directory
-df['dst'] = './dst'
 
 # create new filepaths
+df = get_file_extension(df)
+df['dst'] = './dst'
 df = get_new_filepath(df,template="{dst}/sub-{subject_id}/sub-{subject_id}_task-{task}{file_extension}")
 
 # copy files over to new destination
