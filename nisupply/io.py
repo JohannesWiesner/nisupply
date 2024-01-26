@@ -212,7 +212,7 @@ def get_filepath_df(src_dir,regex_dict=None,**kwargs):
     
 def get_dst_dir(df,src_dir,dst_dir):
     '''Creates a new column 'dst' in the dataframe where the source directory
-    gets replaced with the destination directory'''
+    in each filepath gets replaced with the destination directory'''
     
     src_dir = os.path.normpath(src_dir)
     dst_dir = os.path.normpath(dst_dir)
@@ -222,7 +222,7 @@ def get_dst_dir(df,src_dir,dst_dir):
     
 def copy_files(df,src_col,tgt_col):
     '''Copy files to destination directories using a source and a target
-    column in a pandas Dataframe. Nested target directory structures are
+    column in a pandas Dataframe. Non existing directories are
     created along the way. Existing files will be overwritten.
 
     Parameters
