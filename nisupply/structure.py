@@ -1,61 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Utilties to handle BIDS-information
+Utilities to restructure the filepath dataframe
 
 @author: johannes.wiesner
 """
 
-from .io import regex_extract
 import re
 import os
-
-# TODO: Should be grabbed as .json from pybids to be always conform with upstream
-BIDS_ENTITY_REGEX_DICT={'session':('(_ses-)(\d+)',2),
-                        'run':('(_run-)(\d+)',2),
-                        'data_type':('func|dwi|fmap|anat|meg|eeg|ieeg|beh',0),
-                        'echo':('(_echo-)(\d+)',2)}
-
-# FIXME: 't' should start from 1 and not from 0 in order to stick to BIDS convention
-# In BIDS, lists start from 1 (e.g. runs also start from 1 and not from 0).
-def get_timepoint(filepath_df):
-    '''Derive timepoints from session labels. This function assumes that the session
-    labels can be sorted alphanumerically and that there is some sort of 'time logic' encoded in the session labels'''
-
-    # create timepoints for session dates
-    filepath_df['t'] = filepath_df.sort_values(['participant_id','session_label']).drop_duplicates(['participant_id', 'session_label']).groupby('participant_id').cumcount()
-    filepath_df['t'] = filepath_df['t'].fillna(method='ffill').astype(int)
-
-    return filepath_df
-
-def add_bids_info(df,regex_dict=None):
-    '''Adds new columns corresponding to standard BIDS-entities to dataframe
-
-    Parameters
-    ----------
-    df : pd.DataFrame
-        A dataframe with a 'filepath' column
-    regex_dict : dict of tuples of str and int, optional
-        A dictionary where the keys correspond to new columns that should
-        be added to the dataframe and the values are tuples where the
-        first entry is a regex-pattern and the second entry is an integer
-        corresponding to a capture group (set to 0 if you want to match
-        the whole regex)
-
-    Returns
-    -------
-    df : pd.DataFrame
-        Input dataframe with added columns.
-
-
-    '''
-
-    if not regex_dict:
-        regex_dict = BIDS_ENTITY_REGEX_DICT
-
-    for entity,regex_info in BIDS_ENTITY_REGEX_DICT.items():
-        df[entity] = df['filepath'].apply(regex_extract,args=(regex_info[0],regex_info[1]))
-    return df
+import pathlib
 
 def get_file_extension(filepath):
     '''Returns the file extension(s) of a given filepath. 
