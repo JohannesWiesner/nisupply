@@ -10,9 +10,10 @@ import os
 import pathlib
 import gzip
 import shutil
-import stat
 
 # FIXME: Should operate on the 'filepath' column of pandas dataframe
+# FIXME: Should be 'smart' and automatically use the right decompression function
+# depending on the ending (e.g. .nii.gz vs. .nii.zip  vs. .nii.7zp)
 def uncompress_files(filepath_list,dst_dir=None):
     '''Uncompress files and obtain a list of the uncompressed files.
 
@@ -41,6 +42,7 @@ def uncompress_files(filepath_list,dst_dir=None):
     for f in filepath_list:
 
         # get all necessary extensions
+        # FIXME: There's a function for this in the structure module
         file_extensions = pathlib.Path(f).suffixes
         file_extension = file_extensions[0]
         both_extensions = ''.join(file_extensions)
