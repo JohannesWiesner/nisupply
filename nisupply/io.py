@@ -100,7 +100,7 @@ def find_files(src_dir,file_suffix=None,file_prefix=None,
 
     # Raise Error if no files where found
     if len(filepath_list) == 0:
-        warn(f"No files that match the given criterions where found within {src_dir}")
+        warn(f"No files that match the given criteria where found within {src_dir}")
 
     return filepath_list
 
@@ -110,9 +110,9 @@ def regex_extract(filepath,pattern,re_group=0):
     Parameters
     ----------
     filepath : str
-        filepath
-    pattern : regex-pattern
-        DESCRIPTION.
+        filepath.
+    pattern : str
+        regular expression.
     re_group : int, optional
         If regex-pattern contains capture groups, denotes
         which group should be extracted. The default is 0 which corresponds
@@ -218,10 +218,10 @@ def get_dst_dir(df,src_dir,dst_dir):
     
     return df
     
-def copy_files(df,src,tgt):
+def copy_files(df,src_col,tgt_col):
     '''Copy files to destination directories using a source and a target
     column in a pandas Dataframe. Nested target directory structures are
-    created along the way. Existing files will be overwritten
+    created along the way. Existing files will be overwritten.
 
     Parameters
     ----------
@@ -230,12 +230,13 @@ def copy_files(df,src,tgt):
         column specifying the destination filepaths.
 
     src: str
-        Denotes the column that denotes the source filepath
+        Denotes the column that contains the source filepaths
 
     tgt: str
-        Denotes the column that enotes the target filepath
+        Denotes the column that containes the target filepaths or target
+        directories (in latter case, the path must end with a '/').
 
     '''
 
-    df.apply(lambda row: os.makedirs(os.path.dirname(row[tgt]),exist_ok=True),axis=1)
-    df.apply(lambda row: shutil.copy2(row[src],row[tgt]),axis=1)
+    df.apply(lambda row: os.makedirs(os.path.dirname(row[tgt_col]),exist_ok=True),axis=1)
+    df.apply(lambda row: shutil.copy2(row[src_col],row[tgt_col]),axis=1)
