@@ -41,16 +41,6 @@ def get_dst_dir(df,src_dir,dst_dir):
     
     return df
 
-def extract_entities(template):
-    '''Extract characters inside curly braces in a tuple of strs. Strings
-    that do not contain curly braces are ignored
-    E.g. ["sub-{subject_id}","session-{session}"] becomes ['subject_id','session']
-    '''
-
-    entities = [re.findall("\{(.*?)\}",entity) for entity in template]
-    entities = [e for entity in entities for e in entity]
-    return entities
-
 def get_new_filepath(df,template):
     '''Helps you to create new directories and new filenames using string formatting.
     
