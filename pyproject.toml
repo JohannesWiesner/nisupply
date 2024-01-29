@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nisupply"
-version= "2024.01.29"
+version= "1.0.0"
 authors = [
     {name = "Johannes Wiesner", email = "joh.wiesner@gmail.com"},
 ]
