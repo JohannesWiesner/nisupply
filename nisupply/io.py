@@ -15,7 +15,7 @@ import shutil
 
 def find_files(src_dir,file_suffix=None,file_prefix=None,
                exclude_dirs=None,must_contain_all=None,must_contain_any=None,
-               case_sensitive=True):
+               must_not_contain_all=None,must_not_contain_any=None,case_sensitive=True):
     '''Find files in a single source directory. Files are found based on a
     specified file suffix. Optionally, the function can filter for files
     using an optional file prefix and a list of preceding directories that must be
@@ -33,13 +33,23 @@ def find_files(src_dir,file_suffix=None,file_prefix=None,
         Default: None
     exclude_dirs : str, list of str, None
         Name of single directory or list of directory names that should be ignored when searching for files.
-        All of the specified directories and their child directories will be ignored.
+        All of the specified directories and their child directories will be ignored. Note that
+        this can significantly speed up the search because it prevents the function to walk through directories
+        of no interest.
         Default: None
     must_contain_all: str, list of str
         Single string or list of strings that must all appear in the filepath
         Default: None
     must_contain_any: str, list of str
         Single string or list of strings where any of those must appear in the filepath
+        Default: None
+    must_not_contain_all: str, list of str
+        Single string or list of strings. The filepath will be excluded if 
+        it contains all of those strings.
+        Default: None
+    must_not_contain_any: str, list of str
+        Single string or list of strings. The filepath will be excluded if
+        it contains any of those strings.
         Default: None
     case_sensitive: Boolean
         If True, matching is done by the literal input of file suffixes and
@@ -70,8 +80,8 @@ def find_files(src_dir,file_suffix=None,file_prefix=None,
 
     filepath_list = []
 
-    # search for files that match the given file extension.
-    # if prefix is defined, only append files that match the given prefix
+    # check if filepath against the given criteria and append it to list
+    # if it passes all checks
     for (paths, dirs, files) in os.walk(src_dir):
 
         if exclude_dirs:
@@ -95,10 +105,16 @@ def find_files(src_dir,file_suffix=None,file_prefix=None,
             
             if must_contain_any and not any(element in filepath for element in must_contain_any):
                 continue
-
+            
+            if must_not_contain_all and all(element in filepath for element in must_not_contain_all):
+                continue
+            
+            if must_not_contain_any and any(element in filepath for element in must_not_contain_any):
+                continue
+            
             filepath_list.append(filepath)
 
-    # Raise Error if no files where found
+    # Raise warning if no files were found
     if len(filepath_list) == 0:
         warn(f"No files that match the given criteria where found within {src_dir}")
 
