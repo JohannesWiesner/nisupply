@@ -77,6 +77,12 @@ def find_files(src_dir,file_suffix=None,file_prefix=None,
     
     if isinstance(must_contain_any,str):
         must_contain_any = [must_contain_any]
+        
+    if isinstance(must_not_contain_all,str): 
+        must_not_contain_all = [must_not_contain_all] 
+     
+    if isinstance(must_not_contain_any,str): 
+        must_not_contain_any = [must_not_contain_any] 
 
     filepath_list = []
 
