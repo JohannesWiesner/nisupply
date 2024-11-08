@@ -197,6 +197,15 @@ def get_filepath_df(src_dir,regex_dict=None,**kwargs):
         Single string or list of strings where any of those must appear in the filepath
         Default: None
         
+    must_not_contain_all: str, list of str
+        Single string or list of strings. The filepath will be excluded if 
+        it contains all of those strings.
+        Default: None
+    must_not_contain_any: str, list of str
+        Single string or list of strings. The filepath will be excluded if
+        it contains any of those strings.
+        Default: None
+        
     case_sensitive: Boolean
         If False, all files will be converted to lower-case letters first before
         applying search conditions.
