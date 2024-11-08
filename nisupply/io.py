@@ -25,37 +25,44 @@ def find_files(src_dir,file_suffix=None,file_prefix=None,
     ----------
     src_dir: path
         A directory that should be searched for files.
+        
     file_suffix: str, tuple of strs
         One or multiple strings on which the end of the filepath should match.
         Default: None
+        
     file_prefix: str, tuple of strs
         One or multiple strings on which the beginning of the filepath should match.
         Default: None
+        
     exclude_dirs : str, list of str, None
         Name of single directory or list of directory names that should be ignored when searching for files.
         All of the specified directories and their child directories will be ignored. Note that
         this can significantly speed up the search because it prevents the function to walk through directories
         of no interest.
         Default: None
+        
     must_contain_all: str, list of str
         Single string or list of strings that must all appear in the filepath
         Default: None
+        
     must_contain_any: str, list of str
         Single string or list of strings where any of those must appear in the filepath
         Default: None
+        
     must_not_contain_all: str, list of str
         Single string or list of strings. The filepath will be excluded if 
         it contains all of those strings.
         Default: None
+        
     must_not_contain_any: str, list of str
         Single string or list of strings. The filepath will be excluded if
         it contains any of those strings.
         Default: None
+        
     case_sensitive: Boolean
-        If True, matching is done by the literal input of file suffixes and
-        prefixes and files. If False, both the inputs and the files are converted
-        to lowercase first in order to match on characters only regardless of lower-
-        or uppercase-writing.
+        If False, all files will be converted to lower-case letters first before
+        applying search conditions.
+        Default: True
 
     Returns
     -------
@@ -186,7 +193,9 @@ def get_filepath_df(src_dir,regex_dict=None,**kwargs):
         
     exclude_dirs : str, list of str, None
         Name of single directory or list of directory names that should be ignored when searching for files.
-        All of the specified directories and their child directories will be ignored.
+        All of the specified directories and their child directories will be ignored. Note that
+        this can significantly speed up the search because it prevents the function to walk through directories
+        of no interest.
         Default: None
         
     must_contain_all: str, list of str
@@ -201,6 +210,7 @@ def get_filepath_df(src_dir,regex_dict=None,**kwargs):
         Single string or list of strings. The filepath will be excluded if 
         it contains all of those strings.
         Default: None
+        
     must_not_contain_any: str, list of str
         Single string or list of strings. The filepath will be excluded if
         it contains any of those strings.
@@ -217,8 +227,7 @@ def get_filepath_df(src_dir,regex_dict=None,**kwargs):
         A data frame with a 'filepath' column and optionally other columns 
         defined using regular expressions.
     '''
-
-
+    
     if isinstance(src_dir,str):
         
         files = find_files(src_dir,**kwargs)
