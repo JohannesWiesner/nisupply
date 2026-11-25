@@ -7,6 +7,9 @@ Input/Output operations (Finding files, copy them to other places, etc.)
 """
 
 import os
+import subprocess
+import tempfile
+from pathlib import Path
 import re
 from warnings import warn
 import numpy as np
@@ -15,7 +18,8 @@ import shutil
 
 def find_files(src_dir,file_suffix=None,file_prefix=None,
                exclude_dirs=None,must_contain_all=None,must_contain_any=None,
-               must_not_contain_all=None,must_not_contain_any=None,case_sensitive=True):
+               must_not_contain_all=None,must_not_contain_any=None,case_sensitive=True,
+               regex_match=None,filename_regex=None,exclude_nested_dirs=None):
     '''Find files in a single source directory. Files are found based on a
     specified file suffix. Optionally, the function can filter for files
     using an optional file prefix and a list of preceding directories that must be
@@ -26,6 +30,11 @@ def find_files(src_dir,file_suffix=None,file_prefix=None,
     src_dir: path
         A directory that should be searched for files.
         
+    regex_match, filename_regex : str, optional
+        Regex searches on the full path and basename, respectively.
+    exclude_nested_dirs : str or list of str, optional
+        Prune directories matching a sequence of adjacent directory names.
+
     file_suffix: str, tuple of strs
         One or multiple strings on which the end of the filepath should match.
         Default: None
@@ -91,6 +100,15 @@ def find_files(src_dir,file_suffix=None,file_prefix=None,
     if isinstance(must_not_contain_any,str): 
         must_not_contain_any = [must_not_contain_any] 
 
+    flags = 0 if case_sensitive else re.IGNORECASE
+    path_pattern = re.compile(regex_match, flags) if regex_match is not None else None
+    name_pattern = re.compile(filename_regex, flags) if filename_regex is not None else None
+    if isinstance(exclude_dirs, str):
+        exclude_dirs = [exclude_dirs]
+    if isinstance(exclude_nested_dirs, (str, os.PathLike)):
+        exclude_nested_dirs = [exclude_nested_dirs]
+    excluded = [Path(seq).parts for seq in exclude_nested_dirs or ()]
+
     filepath_list = []
 
     # check if filepath against the given criteria and append it to list
@@ -100,10 +118,20 @@ def find_files(src_dir,file_suffix=None,file_prefix=None,
         if exclude_dirs:
             dirs[:] = [d for d in dirs if d not in exclude_dirs]
 
+        if excluded:
+            parent = Path(paths).parts
+            dirs[:] = [d for d in dirs if not any(
+                (parent + (d,))[-len(seq):] == seq for seq in excluded
+            )]
+
         for file in files:
 
             filepath = os.path.join(paths,file)
 
+            if path_pattern and not path_pattern.search(filepath):
+                continue
+            if name_pattern and not name_pattern.search(file):
+                continue
             if not case_sensitive:
                 file = file.lower()
 
@@ -144,11 +172,6 @@ def _regex_extract(filepath,pattern):
         filepath.
     pattern : str
         regular expression.
-    re_group : int, optional
-        If regex-pattern contains capture groups, denotes
-        which group should be extracted. The default is 0 which corresponds
-        to the whole regex-match
-
     Returns
     -------
     regex-match, np.nan
@@ -166,7 +189,12 @@ def _regex_extract(filepath,pattern):
     else:
         return np.nan
 
-def get_filepath_df(src_dir,regex_dict=None,**kwargs):
+def _scan(roots, working_directory, filters):
+    # The working directory distinguishes relative roots in persistent caches.
+    return [path for root in roots for path in find_files(root, **filters)]
+
+
+def get_filepath_df(src_dir,regex_dict=None,cache=False,**kwargs):
     '''Find files in one ore multiple directories. 
 
     Parameters
@@ -175,14 +203,22 @@ def get_filepath_df(src_dir,regex_dict=None,**kwargs):
     src_dir: list-like of str, str
         One or multiple source directories that should be searched for files
         
+    cache : bool or path, optional
+        Cache searches in a trusted directory. True selects ~/.cache/nisupply.
+        Clear the cache after changing the dataset. False performs a fresh scan.
     regex_dict: dict 
         A dicionary where the keys denote names of new columns that should be
         added to the dataframe and the values denote regex-patterns. If 
-        a regex-pattern contains a capture group, the group will be returned,
+        a regex-pattern contains capture groups, the first group will be returned,
         otherwise the whole match. If no match could be found np.nan will be
         returned.
         Default: None
         
+    regex_match, filename_regex : str, optional
+        Regex searches on the full path and basename, respectively.
+    exclude_nested_dirs : str or list of str, optional
+        Prune directories matching a sequence of adjacent directory names.
+
     file_suffix: str, tuple of strs
         One or multiple strings on which the end of the filepath should match.
         Default: None
@@ -228,47 +264,93 @@ def get_filepath_df(src_dir,regex_dict=None,**kwargs):
         defined using regular expressions.
     '''
     
-    if isinstance(src_dir,str):
-        
-        files = find_files(src_dir,**kwargs)
-        df = pd.DataFrame({'filepath':files})
-    
-    elif isinstance(src_dir,list):
-        
-        dfs = []
-        
-        for src in src_dir:
-            files = find_files(src,**kwargs)
-            df = pd.DataFrame({'filepath':files})
-            dfs.append(df)
-            
-        df = pd.concat(dfs,ignore_index=True)
-    
+    roots = [src_dir] if isinstance(src_dir, (str, os.PathLike)) else src_dir
+    roots = tuple(os.fspath(root) for root in roots)
+    scan = _scan
+    if cache:
+        from joblib import Memory
+        location = Path.home() / ".cache" / "nisupply" if cache is True else cache
+        scan = Memory(location, verbose=0).cache(_scan)
+    df = pd.DataFrame({"filepath": scan(roots, os.getcwd(), kwargs)})
+
     if regex_dict:
         for column,pattern in regex_dict.items():
             df[column] = df['filepath'].apply(lambda filepath: _regex_extract(filepath,pattern))
         
     return df
         
-def copy_files(df,src_col,tgt_col):
-    '''Copy files to destination directories using a source and a target
-    column in a pandas Dataframe. Non existing directories are
-    created along the way. Existing files will be overwritten.
+def copy_files(df, src_col, tgt_col, skip_existing=False, verify=False):
+    """Copy files, optionally skipping existing targets or comparing their bytes.
 
-    Parameters
-    ----------
-    df: pd.DataFrame
-        A dataframe that holds a column with the source filepaths and one
-        column specifying the destination filepaths.
+    With skip_existing and verify enabled, differing files are recopied.
+    A trailing separator or existing directory selects the source basename.
+    """
+    for src, target in zip(df[src_col], df[tgt_col]):
+        target = os.fspath(target)
+        os.makedirs(os.path.dirname(target) or ".", exist_ok=True)
+        if os.path.isdir(target):
+            target = os.path.join(target, os.path.basename(src))
+        if skip_existing and os.path.isfile(target):
+            if not verify or _same_contents(src, target):
+                continue
+        if os.path.exists(target) and os.path.samefile(src, target):
+            raise shutil.SameFileError(src, target)
+        # Publish a complete file even if the transfer is interrupted.
+        destination = Path(target).resolve()
+        with tempfile.NamedTemporaryFile(dir=destination.parent, delete=False) as tmp:
+            staging = Path(tmp.name)
+        try:
+            shutil.copy2(src, staging)
+            os.replace(staging, destination)
+        finally:
+            staging.unlink(missing_ok=True)
 
-    src: str
-        Denotes the column that contains the source filepaths
 
-    tgt: str
-        Denotes the column that containes the target filepaths or target
-        directories (in latter case, the path must end with a '/').
+def _same_contents(src, target):
+    if os.path.getsize(src) != os.path.getsize(target):
+        return False
+    with open(src, "rb") as left, open(target, "rb") as right:
+        while True:
+            chunk = left.read(1024 * 1024)
+            if chunk != right.read(1024 * 1024):
+                return False
+            if not chunk:
+                return True
 
-    '''
 
-    df.apply(lambda row: os.makedirs(os.path.dirname(row[tgt_col]),exist_ok=True),axis=1)
-    df.apply(lambda row: shutil.copy2(row[src_col],row[tgt_col]),axis=1)
+def rsync_from_df(df, src_col, src_root, dst_root, verbosity=1,
+                  remove_sync_spec_file=True, spec_filename=None,
+                  archive=True, mkpath=True):
+    """Sync listed files in one rsync call, preserving their relative paths.
+
+    Paths may be absolute or relative to src_root. An explicit spec_filename
+    must be unused. Return the manifest path when remove_sync_spec_file=False.
+    """
+    root = Path(src_root).expanduser().resolve()
+    destination = Path(dst_root).expanduser().resolve()
+    entries = []
+    for value in df[src_col]:
+        path = (root / value).resolve()
+        relative = path.relative_to(root)
+        if not path.is_file():
+            raise ValueError(f"Expected a source file: {path}")
+        entries.append(os.fsencode(relative) + b"\0")
+
+    manifest = (open(spec_filename, "xb") if spec_filename is not None else
+                tempfile.NamedTemporaryFile(dir=".", prefix=".rsync-", delete=False))
+    spec = Path(manifest.name).absolute()
+    try:
+        with manifest:
+            manifest.writelines(entries)
+        options = ["-a" if archive else "-r"]
+        if verbosity > 0:
+            options.append("-vv" if verbosity >= 2 else "-v")
+        if mkpath:
+            options.append("--mkpath")
+        subprocess.run(["rsync", *options, "--from0", f"--files-from={spec}",
+                        "--", str(root) + os.sep, str(destination) + os.sep], check=True)
+    finally:
+        if remove_sync_spec_file:
+            spec.unlink(missing_ok=True)
+    if not remove_sync_spec_file:
+        return spec

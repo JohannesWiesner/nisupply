@@ -41,28 +41,44 @@ def get_dst_dir(df,src_dir,dst_dir):
     
     return df
 
-def get_new_filepath(df,template):
-    '''Helps you to create new directories and new filenames using string formatting.
-    
-    Parameters
-    ----------
-    df : pd.DataFrame
-        A pandas data frame.
-    template : str
-        A string that serves as template for the new filepath. The string may 
-        contain placeholders in curly brackets that match to a column name in the data frame. 
-        
-    Returns
-    -------
-    pd.DataFrame
-        The original dataframe with an additional columm 'filepath_new' that
-        holds the new filepath for each row
+def add_new_column(df, template, new_col="filepath_new"):
+    """Format a template using each row's named columns."""
+    df[new_col] = [template.format_map(row) for row in df.to_dict("records")]
+    return df
 
-    '''
 
-    def _from_template(row,template):
-        return template.format(**row.to_dict())
+build_column = add_new_column
 
-    df['filepath_new'] = df.apply(lambda row: _from_template(row,template),axis=1)
 
+def get_new_filepath(df, template):
+    """Build the legacy filepath_new column."""
+    return add_new_column(df, template)
+
+
+def join_path(df, *parts, new_col="filepath_new"):
+    """Join component templates such as root, '{subject}', and '{session}'."""
+    df[new_col] = [os.path.join(*(os.fspath(p).format_map(row) for p in parts))
+                   for row in df.to_dict("records")]
+    return df
+
+
+def set_dir(df, dst_dir, src_col="filepath", new_col="dst"):
+    """Place each source basename directly under dst_dir."""
+    df[new_col] = df[src_col].map(lambda p: os.path.join(dst_dir, os.path.basename(p)))
+    return df
+
+
+def add_match_column(df, src_col, new_col, patterns, regex=False, default=None):
+    """Assign the first matching mapping value, or default for unmatched rows."""
+    rules = [(re.compile(key if regex else re.escape(key)), value)
+             for key, value in patterns.items()]
+
+    def classify(item):
+        if isinstance(item, (str, os.PathLike)):
+            for pattern, value in rules:
+                if pattern.search(os.fspath(item)):
+                    return value
+        return default
+
+    df[new_col] = df[src_col].map(classify)
     return df

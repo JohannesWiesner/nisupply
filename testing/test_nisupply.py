@@ -7,7 +7,6 @@ if everything works
 
 
 import os
-import shutil
 import pathlib
 import sys
 
@@ -25,45 +24,43 @@ from nisupply.io import copy_files
 ## Create an unordered dataset ################################################
 ###############################################################################
 
-# start with a clean directory
-if os.path.isdir('./src'):
-    shutil.rmtree('./src')
-if os.path.isdir('./dst'):
-    shutil.rmtree('./dst')
-    
-# create test files with different sizes
-os.makedirs('./src')
+def test_example_dataset(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    # create test files with different sizes
+    os.makedirs('./src')
 
-# specify filenames and directories
-files = ['./src/fmri_nback_subject_3_session_2.nii.gz',
-          './src/subject_4.txt',
-          './src/subject_2_fmri_nback.nii.gz',
-          './src/subject_1/fmri_gambling.nii.gz',
-          './src/subject_1/fmri_nback.nii.gz',
-          './src/subject_1/session_2/fmri_nback.nii.gz',]
+    # specify filenames and directories
+    files = ['./src/fmri_nback_subject_3_session_2.nii.gz',
+              './src/subject_4.txt',
+              './src/subject_2_fmri_nback.nii.gz',
+              './src/subject_1/fmri_gambling.nii.gz',
+              './src/subject_1/fmri_nback.nii.gz',
+              './src/subject_1/session_2/fmri_nback.nii.gz',]
 
-# dummy files will be created (each 1MB in size)
-for file in files:
-    os.makedirs(os.path.dirname(file),exist_ok=True)
-    with open(f"{file}", 'wb') as file:
-        file.seek(1048575)
-        file.write(b'0')
+    # dummy files will be created (each 1MB in size)
+    for file in files:
+        os.makedirs(os.path.dirname(file),exist_ok=True)
+        with open(f"{file}", 'wb') as file:
+            file.seek(1048575)
+            file.write(b'0')
 
-##############################################################################
-# Run nisupply ##############################################
-##############################################################################
+    ##############################################################################
+    # Run nisupply ##############################################
+    ##############################################################################
 
-df = get_filepath_df(src_dir='./src',
-                     regex_dict={'subject_id':'subject_(\d)',
-                                 'task': 'fmri_(nback|gambling)'},
-                     file_suffix='.nii.gz',
-                     file_prefix='fmri_nback')
+    df = get_filepath_df(src_dir='./src',
+                         regex_dict={'subject_id':r'subject_(\d)',
+                                     'task': 'fmri_(nback|gambling)'},
+                         file_suffix='.nii.gz',
+                         file_prefix='fmri_nback')
 
 
-# create new filepaths
-df = get_file_extension(df)
-df['dst'] = './dst'
-df = get_new_filepath(df,template="{dst}/sub-{subject_id}/sub-{subject_id}_task-{task}{file_extension}")
+    # create new filepaths
+    df = get_file_extension(df)
+    df['dst'] = './dst'
+    df = get_new_filepath(df,template="{dst}/sub-{subject_id}/sub-{subject_id}_task-{task}{file_extension}")
 
-# copy files over to new destination
-copy_files(df,src_col='filepath',tgt_col='filepath_new')
+    # copy files over to new destination
+    copy_files(df,src_col='filepath',tgt_col='filepath_new')
+    assert len(df) == 3
+    assert all(pathlib.Path(path).is_file() for path in df["filepath_new"])

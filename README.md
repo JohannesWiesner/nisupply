@@ -19,6 +19,7 @@ Though more and more datasets become available in the standardized BIDS-format, 
 As a consequence, one cannot use tools from the [BIDS Apps universe](https://bids-apps.neuroimaging.io/apps/) which by default require the files to be BIDS-conform in order to work. The idea behind the nisupply module is to provide helper functions that facilitate the often tedious data-wrangling work that can happen with unstructured data sets.
 
 ## Documentation
+See the [usage guide and API reference](docs/index.rst). Build the HTML documentation with `pip install ".[docs]"` and `sphinx-build -b html docs build/html`.
 The nisupply package provides three main modules:
 
 1. `nisupply.io`: for input-output-operations (finding files, copying them over to a different directory)

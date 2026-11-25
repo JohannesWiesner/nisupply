@@ -19,6 +19,7 @@ classifiers = [
 ]
 dependencies = [
     "numpy",
+    "joblib",
     "pandas"
 ]
 
@@ -27,3 +28,8 @@ dependencies = [
 
 [tool.setuptools]
 packages = ["nisupply"]
+
+[project.optional-dependencies]
+bids = ["pybids"]
+workflow = ["nipype"]
+docs = ["sphinx>=7,<9"]
